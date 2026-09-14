@@ -1,0 +1,482 @@
+[
+  {
+    "id": "C01",
+    "name": "Academic CV — Master",
+    "format": "PDF + DOCX",
+    "masterLocation": "00_MASTER/CV",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "All applications",
+    "notes": "2-page academic/research CV",
+    "source": {
+      "Asset ID": "C01",
+      "Asset": "Academic CV — Master",
+      "Format": "PDF + DOCX",
+      "Master location": "00_MASTER/CV",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "All applications",
+      "Notes": "2-page academic/research CV"
+    }
+  },
+  {
+    "id": "C02",
+    "name": "Research Statement — Master",
+    "format": "PDF + DOCX",
+    "masterLocation": "00_MASTER/Research",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Most research applications",
+    "notes": "2–3 pages",
+    "source": {
+      "Asset ID": "C02",
+      "Asset": "Research Statement — Master",
+      "Format": "PDF + DOCX",
+      "Master location": "00_MASTER/Research",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Most research applications",
+      "Notes": "2–3 pages"
+    }
+  },
+  {
+    "id": "C03",
+    "name": "1-page Research Profile",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Research",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Quick reference / emails",
+    "notes": null,
+    "source": {
+      "Asset ID": "C03",
+      "Asset": "1-page Research Profile",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Research",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Quick reference / emails",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C04",
+    "name": "Publication List",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Research",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "All research applications",
+    "notes": "Separate published/submitted status",
+    "source": {
+      "Asset ID": "C04",
+      "Asset": "Publication List",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Research",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "All research applications",
+      "Notes": "Separate published/submitted status"
+    }
+  },
+  {
+    "id": "C05",
+    "name": "IEEE Paper",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Publications",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Relevant applications",
+    "notes": null,
+    "source": {
+      "Asset ID": "C05",
+      "Asset": "IEEE Paper",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Publications",
+      "Status": "Ready",
+      "Last updated": null,
+      "Used for": "Relevant applications",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C06",
+    "name": "M.Tech Thesis",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Academic",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "When requested",
+    "notes": null,
+    "source": {
+      "Asset ID": "C06",
+      "Asset": "M.Tech Thesis",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Academic",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "When requested",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C07",
+    "name": "M.Tech Thesis Summary",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Academic",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Research applications",
+    "notes": "1 page",
+    "source": {
+      "Asset ID": "C07",
+      "Asset": "M.Tech Thesis Summary",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Academic",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Research applications",
+      "Notes": "1 page"
+    }
+  },
+  {
+    "id": "C08",
+    "name": "B.Tech Degree",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Academic",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Applications",
+    "notes": null,
+    "source": {
+      "Asset ID": "C08",
+      "Asset": "B.Tech Degree",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Academic",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Applications",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C09",
+    "name": "B.Tech Transcript",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Academic",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Applications",
+    "notes": null,
+    "source": {
+      "Asset ID": "C09",
+      "Asset": "B.Tech Transcript",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Academic",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Applications",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C10",
+    "name": "M.Tech Degree",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Academic",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Applications",
+    "notes": null,
+    "source": {
+      "Asset ID": "C10",
+      "Asset": "M.Tech Degree",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Academic",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Applications",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C11",
+    "name": "M.Tech Transcript",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Academic",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Applications",
+    "notes": null,
+    "source": {
+      "Asset ID": "C11",
+      "Asset": "M.Tech Transcript",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Academic",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Applications",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C12",
+    "name": "Grading Scale",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Academic",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "International applications",
+    "notes": "Official if possible",
+    "source": {
+      "Asset ID": "C12",
+      "Asset": "Grading Scale",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Academic",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "International applications",
+      "Notes": "Official if possible"
+    }
+  },
+  {
+    "id": "C13",
+    "name": "Passport Bio Page",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Identity",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Applications/visa",
+    "notes": null,
+    "source": {
+      "Asset ID": "C13",
+      "Asset": "Passport Bio Page",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Identity",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Applications/visa",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C14",
+    "name": "English Test / Evidence",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/Language",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Where required",
+    "notes": "Do not assume every university needs a test",
+    "source": {
+      "Asset ID": "C14",
+      "Asset": "English Test / Evidence",
+      "Format": "PDF",
+      "Master location": "00_MASTER/Language",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Where required",
+      "Notes": "Do not assume every university needs a test"
+    }
+  },
+  {
+    "id": "C15",
+    "name": "Foundation Models / LLM Pitch",
+    "format": "PDF/DOCX",
+    "masterLocation": "01_RESEARCH/Foundation_Models",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "LLM/FM positions",
+    "notes": null,
+    "source": {
+      "Asset ID": "C15",
+      "Asset": "Foundation Models / LLM Pitch",
+      "Format": "PDF/DOCX",
+      "Master location": "01_RESEARCH/Foundation_Models",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "LLM/FM positions",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C16",
+    "name": "Agentic / Trustworthy AI Pitch",
+    "format": "PDF/DOCX",
+    "masterLocation": "01_RESEARCH/Agents",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Agent/safety positions",
+    "notes": null,
+    "source": {
+      "Asset ID": "C16",
+      "Asset": "Agentic / Trustworthy AI Pitch",
+      "Format": "PDF/DOCX",
+      "Master location": "01_RESEARCH/Agents",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Agent/safety positions",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C17",
+    "name": "RAG / Graph / Multi-Agent Pitch",
+    "format": "PDF/DOCX",
+    "masterLocation": "01_RESEARCH/RAG",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Ghent/UPM/UQ-type positions",
+    "notes": null,
+    "source": {
+      "Asset ID": "C17",
+      "Asset": "RAG / Graph / Multi-Agent Pitch",
+      "Format": "PDF/DOCX",
+      "Master location": "01_RESEARCH/RAG",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Ghent/UPM/UQ-type positions",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C18",
+    "name": "Multimodal / Trustworthy AI Pitch",
+    "format": "PDF/DOCX",
+    "masterLocation": "01_RESEARCH/Multimodal",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Multimodal/HAI positions",
+    "notes": null,
+    "source": {
+      "Asset ID": "C18",
+      "Asset": "Multimodal / Trustworthy AI Pitch",
+      "Format": "PDF/DOCX",
+      "Master location": "01_RESEARCH/Multimodal",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Multimodal/HAI positions",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C19",
+    "name": "Supervisor Email Template",
+    "format": "DOCX",
+    "masterLocation": "00_MASTER/Templates",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Supervisor outreach",
+    "notes": null,
+    "source": {
+      "Asset ID": "C19",
+      "Asset": "Supervisor Email Template",
+      "Format": "DOCX",
+      "Master location": "00_MASTER/Templates",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Supervisor outreach",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C20",
+    "name": "Motivation Letter Master",
+    "format": "DOCX",
+    "masterLocation": "00_MASTER/Templates",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Applications",
+    "notes": null,
+    "source": {
+      "Asset ID": "C20",
+      "Asset": "Motivation Letter Master",
+      "Format": "DOCX",
+      "Master location": "00_MASTER/Templates",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Applications",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C21",
+    "name": "Research Proposal Skeleton",
+    "format": "DOCX",
+    "masterLocation": "00_MASTER/Templates",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Proposal-required applications",
+    "notes": null,
+    "source": {
+      "Asset ID": "C21",
+      "Asset": "Research Proposal Skeleton",
+      "Format": "DOCX",
+      "Master location": "00_MASTER/Templates",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Proposal-required applications",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C22",
+    "name": "10-slide Research Deck",
+    "format": "PPTX",
+    "masterLocation": "00_MASTER/Interview",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Interviews",
+    "notes": null,
+    "source": {
+      "Asset ID": "C22",
+      "Asset": "10-slide Research Deck",
+      "Format": "PPTX",
+      "Master location": "00_MASTER/Interview",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Interviews",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C23",
+    "name": "Interview Answer Bank",
+    "format": "DOCX",
+    "masterLocation": "00_MASTER/Interview",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "Interviews",
+    "notes": null,
+    "source": {
+      "Asset ID": "C23",
+      "Asset": "Interview Answer Bank",
+      "Format": "DOCX",
+      "Master location": "00_MASTER/Interview",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "Interviews",
+      "Notes": null
+    }
+  },
+  {
+    "id": "C24",
+    "name": "Referee Briefing Pack",
+    "format": "PDF",
+    "masterLocation": "00_MASTER/References",
+    "status": "not-started",
+    "lastUpdated": null,
+    "usedFor": "References",
+    "notes": null,
+    "source": {
+      "Asset ID": "C24",
+      "Asset": "Referee Briefing Pack",
+      "Format": "PDF",
+      "Master location": "00_MASTER/References",
+      "Status": "Not started",
+      "Last updated": null,
+      "Used for": "References",
+      "Notes": null
+    }
+  }
+]
