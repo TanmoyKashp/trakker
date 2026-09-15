@@ -70,7 +70,7 @@ export function DailyPage({ osState, os }: { osState: TrakkerOsState; os: Trakke
                   type="button"
                   onClick={() => os.deleteRoutine(routine.id)}
                   aria-label={`Delete routine ${routine.title}`}
-                  className="focus-ring rounded p-1 text-stone-400 hover:bg-rose-50 hover:text-rose-700"
+                  className="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-stone-400 hover:bg-rose-50 hover:text-rose-700"
                 >
                   ✕
                 </button>
@@ -155,7 +155,7 @@ export function DailyPage({ osState, os }: { osState: TrakkerOsState; os: Trakke
                   type="button"
                   onClick={() => os.deleteRoutine(routine.id)}
                   aria-label={`Delete routine ${routine.title}`}
-                  className="focus-ring rounded p-1 text-stone-400 hover:bg-rose-50 hover:text-rose-700"
+                  className="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-stone-400 hover:bg-rose-50 hover:text-rose-700"
                 >
                   ✕
                 </button>

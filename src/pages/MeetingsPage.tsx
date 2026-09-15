@@ -82,7 +82,7 @@ export function MeetingsPage({ osState, os }: { osState: TrakkerOsState; os: Tra
               <button
                 type="button"
                 onClick={() => os.deleteMeeting(meeting.id)}
-                className="focus-ring rounded p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-700"
+                className="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-stone-400 hover:bg-rose-50 hover:text-rose-700"
                 aria-label={`Delete meeting ${meeting.title}`}
               >
                 ✕
@@ -109,7 +109,7 @@ export function MeetingsPage({ osState, os }: { osState: TrakkerOsState; os: Tra
                 <button
                   type="button"
                   onClick={() => os.deleteMeeting(meeting.id)}
-                  className="focus-ring rounded p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-700"
+                  className="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-stone-400 hover:bg-rose-50 hover:text-rose-700"
                   aria-label={`Delete meeting ${meeting.title}`}
                 >
                   ✕

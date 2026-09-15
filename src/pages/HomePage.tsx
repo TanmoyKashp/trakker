@@ -5,6 +5,8 @@ import { formatRelativeDue } from "../lib/dates";
 import { findUnifiedNextAction, nextDeadline, type UnifiedContext } from "../lib/nextAction";
 import { dateToHHMM, entryTimeRange, formatTime12, getScheduleSnapshot, toMinutes } from "../lib/time";
 import { todayISO } from "../hooks/useTrakkerOs";
+import { VisualCalendar } from "../components/calendar/VisualCalendar";
+import { QuickIdeas } from "../components/ideas/QuickIdeas";
 import type { Application, Mode, TrakkerOsState, TreeNodeRecord } from "../types";
 
 interface Props {
@@ -209,8 +211,8 @@ export function HomePage({ applications, tree, os, mode }: Props) {
     !ctx.current && ctx.next && ctx.next.dayLabel === "Today" ? `Nothing scheduled until ${formatTime12(ctx.next.entry.startTime)}` : null;
 
   return (
-    <section className="page-enter px-5 pb-10 pt-7">
-      <div className="w-full max-w-2xl">
+    <section className="page-enter mx-auto max-w-2xl px-5 pb-10 pt-7">
+      <div className="w-full">
         {/* Contextual header — the mode is the eyebrow; the wordmark lives in the global header. */}
         <header className="text-center">
           <div className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{mode === "work" ? "WORK" : "PERSONAL"}</div>
@@ -268,7 +270,20 @@ export function HomePage({ applications, tree, os, mode }: Props) {
             </div>
           </div>
         )}
+
+        {/* Visual Calendar — both Work and Personal modes */}
+        <div className="mx-auto mt-12 max-w-xl border-t border-stone-300/70 pt-6">
+          <VisualCalendar mode={mode} />
+        </div>
+
+        {/* Lower content: Quick Ideas — Personal ONLY */}
+        {mode === "personal" && (
+          <div className="mx-auto mt-12 max-w-xl border-t border-stone-300/70 pt-6">
+            <QuickIdeas />
+          </div>
+        )}
       </div>
     </section>
   );
 }
+

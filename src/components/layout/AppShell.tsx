@@ -7,12 +7,14 @@ import {
   House,
   LineChart,
   ListTodo,
+  LogOut,
   Target,
   User,
   Users,
 } from "lucide-react";
 import { useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import type { Mode } from "../../types";
 
 /** iOS/PWA status bar matches the active mode. */
@@ -99,6 +101,7 @@ export function AppShell({
   mode: Mode;
   onModeChange: (mode: Mode) => void;
 }) {
+  const { user, signOut, isOfflineMode } = useAuth();
   const modeNav = mode === "work" ? workNav : personalNav;
 
   // Keep the browser/OS status bar in sync with the active mode.
@@ -108,12 +111,35 @@ export function AppShell({
 
   return (
     <div className="app-root min-h-screen bg-[#F7F3ED] text-[#242424]" data-theme={mode}>
-      {/* Mobile top bar: brand + the single mode switch */}
+      {/* Mobile top bar: brand + mode switch + sign out */}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-300/70 bg-[#F7F3ED]/95 px-4 py-2.5 backdrop-blur lg:hidden">
         <Link to="/" className="focus-ring font-serif text-base font-semibold tracking-[0.18em]">
           TRAKKER
         </Link>
-        <ModeSwitch mode={mode} onChange={onModeChange} />
+        <div className="flex items-center gap-1.5">
+          <ModeSwitch mode={mode} onChange={onModeChange} />
+          {user ? (
+            <button
+              type="button"
+              onClick={signOut}
+              aria-label="Sign out"
+              title={`Sign out (${user.email || ""})`}
+              className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-stone-300 bg-[#FFFCF7] text-stone-500 hover:text-stone-800"
+            >
+              <LogOut size={16} />
+            </button>
+          ) : isOfflineMode ? (
+            <button
+              type="button"
+              onClick={signOut}
+              aria-label="Exit offline mode"
+              title="Exit offline mode"
+              className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-stone-300 bg-[#FFFCF7] text-stone-500 hover:text-stone-800"
+            >
+              <LogOut size={16} />
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-stone-300/70 bg-[#FFFCF7] px-4 py-5 lg:flex">
@@ -136,6 +162,53 @@ export function AppShell({
           <div className="my-3 border-t border-stone-200" />
           <NavLinks items={sharedNav} />
         </nav>
+
+        {/* User Account / Sign out */}
+        {user ? (
+          <div className="mt-auto border-t border-stone-200 pt-3">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-semibold text-stone-800">
+                  {user.displayName || "User"}
+                </div>
+                <div className="truncate text-[11px] text-stone-500">
+                  {user.email || ""}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={signOut}
+                aria-label="Sign out"
+                title="Sign out"
+                className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        ) : isOfflineMode ? (
+          <div className="mt-auto border-t border-stone-200 pt-3">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-semibold text-stone-700">
+                  Offline Mode
+                </div>
+                <div className="truncate text-[11px] text-stone-400">
+                  Local data only
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={signOut}
+                aria-label="Exit offline mode"
+                title="Exit offline mode"
+                className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        ) : null}
       </aside>
 
       <main className="safe-bottom lg:ml-64">

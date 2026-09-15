@@ -177,13 +177,23 @@ export function TodayPage({ applications, tree, osState, os }: Props) {
         {todayMeetings.length ? (
           <div className="space-y-2">
             {todayMeetings.map((meeting) => (
-              <div key={meeting.id} className="text-sm">
-                <span className="font-medium">{meeting.title}</span>
-                <span className="text-stone-500">
-                  {" "}
-                  · {formatTime12(meeting.startTime)}–{formatTime12(meeting.endTime)}
-                </span>
-                {meeting.location && <span className="text-stone-500"> · {meeting.location}</span>}
+              <div key={meeting.id} className="flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0 flex-1 truncate">
+                  <span className="font-medium">{meeting.title}</span>
+                  <span className="text-stone-500">
+                    {" "}
+                    · {formatTime12(meeting.startTime)}–{formatTime12(meeting.endTime)}
+                  </span>
+                  {meeting.location && <span className="text-stone-500"> · {meeting.location}</span>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => os.deleteMeeting(meeting.id)}
+                  aria-label={`Delete meeting ${meeting.title}`}
+                  className="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-stone-400 hover:bg-rose-50 hover:text-rose-700"
+                >
+                  ✕
+                </button>
               </div>
             ))}
           </div>

@@ -35,11 +35,38 @@ function mergeTreeNode(node: TreeNodeRecord, local: LocalState): TreeNodeRecord 
   return override ? { ...node, status: override.status ?? node.status, notes: override.notes ?? node.notes } : node;
 }
 
-export function useTrakkerData() {
+import { syncPhdToFirestore } from "../lib/firestoreSync";
+
+export function useTrakkerData(userId?: string | null) {
   const [reference, setReference] = useState<ReferenceData>(bundledReferenceData);
   const [offline, setOffline] = useState(false);
   const [loadError, setLoadError] = useState<string | undefined>();
   const [localState, setLocalState] = useLocalStorage<LocalState>("trakker:v1", emptyLocalState);
+
+  // Listen for remote Firestore sync updates
+  useEffect(() => {
+    function handleRemoteSync(event: Event) {
+      const customEvent = event as CustomEvent<Partial<LocalState>>;
+      if (customEvent.detail) {
+        setLocalState((current) => ({
+          ...current,
+          applicationOverrides: customEvent.detail.applicationOverrides || current.applicationOverrides,
+          customApplications: customEvent.detail.customApplications || current.customApplications,
+          treeOverrides: customEvent.detail.treeOverrides || current.treeOverrides,
+          expandedTreeNodes: customEvent.detail.expandedTreeNodes || current.expandedTreeNodes,
+        }));
+      }
+    }
+    window.addEventListener("trakker:sync:phd", handleRemoteSync);
+    return () => window.removeEventListener("trakker:sync:phd", handleRemoteSync);
+  }, [setLocalState]);
+
+  // Sync to Firestore on local changes
+  useEffect(() => {
+    if (userId) {
+      syncPhdToFirestore(userId, localState);
+    }
+  }, [localState, userId]);
 
   useEffect(() => {
     void loadReferenceData().then((result) => {
@@ -152,6 +179,16 @@ export function useTrakkerData() {
     updateApplication(id, { stage });
   }
 
+  function deleteApplication(id: string) {
+    setLocalState((current) => ({
+      ...current,
+      customApplications: current.customApplications.filter((app) => app.id !== id),
+      applicationOverrides: Object.fromEntries(
+        Object.entries(current.applicationOverrides).filter(([k]) => k !== id),
+      ),
+    }));
+  }
+
   function resetLocalData() {
     setLocalState(emptyLocalState);
   }
@@ -166,6 +203,7 @@ export function useTrakkerData() {
     loadError,
     updateApplication,
     createApplication,
+    deleteApplication,
     updateTreeNode,
     toggleTreeExpanded,
     setAllTreeExpanded,

@@ -11,9 +11,10 @@ import type { Application, ApplicationOverride, ApplicationStage, TaskStatus } f
 interface Props {
   applications: Application[];
   updateApplication: (id: string, patch: ApplicationOverride) => void;
+  deleteApplication?: (id: string) => void;
 }
 
-export function ApplicationDetailPage({ applications, updateApplication }: Props) {
+export function ApplicationDetailPage({ applications, updateApplication, deleteApplication }: Props) {
   const { id } = useParams();
   const navigate = useNavigate();
   const app = applications.find((item) => item.id === id);
@@ -99,9 +100,25 @@ export function ApplicationDetailPage({ applications, updateApplication }: Props
           <h1 className="max-w-4xl text-2xl font-semibold leading-tight">{app.opportunity}</h1>
           <p className="text-sm text-stone-600">{app.institution} · {app.location || "Not specified"}</p>
         </div>
-        <button className="focus-ring inline-flex items-center gap-2 rounded-md border border-stone-300 bg-[#FFFCF7] px-3 py-2 text-sm" onClick={() => setEditing((value) => !value)}>
-          <Save size={16} /> {editing ? "Close edit" : "Edit"}
-        </button>
+        <div className="flex items-center gap-2">
+          {app.isCustom && deleteApplication && (
+            <button
+              type="button"
+              className="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-md border border-rose-300 bg-white px-3 text-sm text-rose-700 hover:bg-rose-50"
+              onClick={() => {
+                if (window.confirm(`Delete custom application "${app.opportunity}"?`)) {
+                  deleteApplication(app.id);
+                  navigate("/applications");
+                }
+              }}
+            >
+              Delete application
+            </button>
+          )}
+          <button className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md border border-stone-300 bg-[#FFFCF7] px-3 py-2 text-sm" onClick={() => setEditing((value) => !value)}>
+            <Save size={16} /> {editing ? "Close edit" : "Edit"}
+          </button>
+        </div>
       </header>
 
       <div className="mb-4 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">

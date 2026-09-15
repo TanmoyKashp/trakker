@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Production build
+dist/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+
+# Local Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# System Files
+.DS_Store
+Thumbs.db
+.vercel
+.env*

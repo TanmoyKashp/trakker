@@ -150,9 +150,24 @@ export interface Routine {
   enabled: boolean;
 }
 
+export interface WorkoutItem {
+  id: string;
+  title: string;
+  startTime: string; // HH:MM
+  durationMinutes: number;
+  enabled: boolean;
+}
+
 export interface WorkoutSettings {
   enabled: boolean;
   startTime: string;
+}
+
+export interface ActiveWorkout {
+  workoutId: string;
+  workoutTitle: string;
+  startedAt: number; // Date.now() timestamp
+  durationSeconds: number; // 60
 }
 
 export interface Goal {
@@ -171,5 +186,18 @@ export interface TrakkerOsState {
   routines: Routine[];
   routineCompletions: Record<string, string>;
   workout: WorkoutSettings;
+  workouts: WorkoutItem[];
   goals: Goal[];
 }
+
+// ===== Quick Ideas (Personal mode only) =====
+
+export type QuickIdeaStatus = "open" | "completed" | "archived";
+
+export interface QuickIdea {
+  id: string;
+  text: string;
+  createdAt: string;
+  status: QuickIdeaStatus;
+}
+

@@ -1,13 +1,18 @@
+import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useTrakkerData } from "./hooks/useTrakkerData";
 import { useTrakkerOs } from "./hooks/useTrakkerOs";
+import { startFirestoreSync } from "./lib/firestoreSync";
 import { ApplicationDetailPage } from "./pages/ApplicationDetailPage";
 import { ApplicationsPage } from "./pages/ApplicationsPage";
 import { DailyPage } from "./pages/DailyPage";
 import { GoalsPage } from "./pages/GoalsPage";
 import { HomePage } from "./pages/HomePage";
+import { LoginPage } from "./pages/LoginPage";
 import { MeetingsPage } from "./pages/MeetingsPage";
+import { OnboardingPage } from "./pages/OnboardingPage";
 import { StatusPage } from "./pages/StatusPage";
 import { TasksPage } from "./pages/TasksPage";
 import { TimetablePage } from "./pages/TimetablePage";
@@ -15,9 +20,43 @@ import { TodayPage } from "./pages/TodayPage";
 import { TreePage } from "./pages/TreePage";
 import { WorkoutPage } from "./pages/WorkoutPage";
 
-export default function App() {
-  const data = useTrakkerData();
-  const os = useTrakkerOs();
+function AppContent() {
+  const { user, loading, showOnboarding, isOfflineMode } = useAuth();
+  const data = useTrakkerData(user?.uid);
+  const os = useTrakkerOs(user?.uid);
+
+  // Background Firestore sync for authenticated user
+  useEffect(() => {
+    if (user?.uid) {
+      const syncPromise = startFirestoreSync(user.uid);
+      return () => {
+        void syncPromise.then((cleanup) => cleanup());
+      };
+    }
+  }, [user?.uid]);
+
+  // Loading screen with minimal branded pulse
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F7F3ED]">
+        <div className="font-serif text-xl font-semibold tracking-[0.18em] text-[#242424] animate-pulse">
+          TRAKKER
+        </div>
+      </div>
+    );
+  }
+
+  // Unauthenticated users see minimal login screen with "Continue with Google"
+  if (!user && !isOfflineMode) {
+    return <LoginPage />;
+  }
+
+  // First-ever login: show onboarding tutorial screen once
+  if (user && showOnboarding) {
+    return <OnboardingPage />;
+  }
+
+  // Authenticated or offline mode user: standard operating system
   return (
     <Routes>
       <Route
@@ -52,3 +91,12 @@ export default function App() {
     </Routes>
   );
 }
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+

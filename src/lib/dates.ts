@@ -38,3 +38,26 @@ export function deadlineState(deadline?: string | null, fallbackText?: string | 
   if (days <= 7) return { label: `${days} days left`, tone: "yellow", days };
   return { label: `${days} days left`, tone: "gray", days };
 }
+
+/** Formats an ISO date string into a relative time (e.g., "Just now", "5m ago", "2h ago", "Yesterday", "15 Sep"). */
+export function formatRelativeTime(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "—";
+  const diffMs = now.getTime() - then;
+  if (diffMs < 45_000) return "Just now";
+  const diffMins = Math.floor(diffMs / 60_000);
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  const d = new Date(iso);
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
