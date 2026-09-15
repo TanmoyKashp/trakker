@@ -3,13 +3,10 @@ import { todayISO } from "../hooks/useTrakkerOs";
 import { findUnifiedNextAction, type UnifiedContext } from "../lib/nextAction";
 import { entryTimeRange, formatTime12, getDayEntries, getScheduleSnapshot, sectionsLabel, toMinutes } from "../lib/time";
 import type { TrakkerOs, TrakkerOsState } from "../hooks/useTrakkerOs";
-import type { Application, TreeNodeRecord } from "../types";
 import { QuickAddTask, TaskItem, UndoToast, useUndoableTaskDelete } from "../components/tasks/TaskComponents";
 import { useNow } from "./HomePage";
 
 interface Props {
-  applications: Application[];
-  tree: TreeNodeRecord[];
   osState: TrakkerOsState;
   os: TrakkerOs;
 }
@@ -32,7 +29,7 @@ function startsInLabel(startTime: string, nowT: string): string | null {
   return mins >= 60 ? `Starts in ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m` : `Starts in ${mins} min`;
 }
 
-export function TodayPage({ applications, tree, osState, os }: Props) {
+export function TodayPage({ osState, os }: Props) {
   const now = useNow(); // shared 30s clock so "time left" updates naturally
   const snapshot = getScheduleSnapshot(now);
   const today = todayISO(now);
@@ -55,13 +52,13 @@ export function TodayPage({ applications, tree, osState, os }: Props) {
       : null,
     officeHoursActive: snapshot.officeHoursActive,
     breakLabel: snapshot.break?.label ?? null,
-    tasks: osState.tasks,
-    meetings: osState.meetings,
-    routines: osState.routines,
+    tasks: osState.tasks.filter((t) => t.mode === "work"),
+    meetings: osState.meetings.filter((m) => m.mode === "work"),
+    routines: osState.routines.filter((r) => r.mode === "work"),
     routineCompletions: osState.routineCompletions,
-    workout: osState.workout,
-    phdApplications: applications,
-    phdTree: tree,
+    workout: { enabled: false, startTime: "17:00" },
+    phdApplications: [],
+    phdTree: [],
   };
   const action = findUnifiedNextAction(ctx);
 

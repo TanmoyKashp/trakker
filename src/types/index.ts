@@ -204,6 +204,7 @@ export interface TrakkerOsState {
   workout: WorkoutSettings;
   workouts: WorkoutItem[];
   goals: Goal[];
+  theme?: string;
   updatedAt?: string;
 }
 

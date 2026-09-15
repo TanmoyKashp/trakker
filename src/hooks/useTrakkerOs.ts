@@ -62,6 +62,7 @@ function migrate(raw: unknown): TrakkerOsState {
     workout: workoutSetting,
     workouts,
     goals: Array.isArray(stored.goals) ? stored.goals : [],
+    theme: typeof stored.theme === "string" ? stored.theme : undefined,
     updatedAt: stored.updatedAt,
   };
 }
@@ -394,6 +395,10 @@ export function useTrakkerOs(userId?: string | null) {
     updateGoal,
     toggleGoal,
     deleteGoal,
+    setTheme: useCallback((theme: string) => {
+      const nowIso = new Date().toISOString();
+      setState((s) => ({ ...s, theme, updatedAt: nowIso }));
+    }, []),
   };
 }
 

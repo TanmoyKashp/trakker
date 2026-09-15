@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { AlertCircle, ArrowRight, Check, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatRelativeDue } from "../lib/dates";
 import { findUnifiedNextAction, nextDeadline, type UnifiedContext } from "../lib/nextAction";
@@ -7,8 +7,7 @@ import { dateToHHMM, entryTimeRange, formatTime12, getScheduleSnapshot, toMinute
 import { todayISO } from "../hooks/useTrakkerOs";
 import { VisualCalendar } from "../components/calendar/VisualCalendar";
 import { QuickIdeas } from "../components/ideas/QuickIdeas";
-import { useAuth } from "../context/AuthContext";
-import { useSyncStatus } from "../lib/firestoreSync";
+import { DottedRabbit } from "../components/rabbit/DottedRabbit";
 import type { Application, Mode, TrakkerOsState, TreeNodeRecord } from "../types";
 
 interface Props {
@@ -18,25 +17,34 @@ interface Props {
   mode: Mode;
 }
 
-/** The single, mode-isolated "what should I be doing now" engine call. */
-export function buildModeContext(applications: Application[], tree: TreeNodeRecord[], os: TrakkerOsState, mode: Mode, now: Date = new Date()): UnifiedContext {
+/** The single, strictly mode-isolated "what should I be doing now" engine call. */
+export function buildModeContext(
+  applications: Application[],
+  tree: TreeNodeRecord[],
+  os: TrakkerOsState,
+  mode: Mode,
+  now: Date = new Date(),
+): UnifiedContext {
   const snapshot = getScheduleSnapshot(now);
+  const isWork = mode === "work";
+
   return {
     mode,
     now: snapshot.now,
-    current: snapshot.current ? { entry: snapshot.current, timeRange: entryTimeRange(snapshot.current) } : null,
-    next: snapshot.next
-      ? { entry: snapshot.next.entry, timeRange: entryTimeRange(snapshot.next.entry), dayLabel: snapshot.next.dayLabel }
-      : null,
-    officeHoursActive: snapshot.officeHoursActive,
-    breakLabel: snapshot.break?.label ?? null,
-    tasks: os.tasks,
-    meetings: os.meetings,
-    routines: os.routines,
+    current: isWork && snapshot.current ? { entry: snapshot.current, timeRange: entryTimeRange(snapshot.current) } : null,
+    next:
+      isWork && snapshot.next
+        ? { entry: snapshot.next.entry, timeRange: entryTimeRange(snapshot.next.entry), dayLabel: snapshot.next.dayLabel }
+        : null,
+    officeHoursActive: isWork && snapshot.officeHoursActive,
+    breakLabel: isWork ? (snapshot.break?.label ?? null) : null,
+    tasks: os.tasks.filter((t) => t.mode === mode),
+    meetings: isWork ? os.meetings.filter((m) => m.mode === "work") : [],
+    routines: os.routines.filter((r) => r.mode === mode),
     routineCompletions: os.routineCompletions,
-    workout: os.workout,
-    phdApplications: applications,
-    phdTree: tree,
+    workout: !isWork ? os.workout : { enabled: false, startTime: "17:00" },
+    phdApplications: !isWork ? applications : [],
+    phdTree: !isWork ? tree : [],
   };
 }
 
@@ -74,16 +82,18 @@ function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextIt
   const t = toMinutes(dateToHHMM(now));
 
   if (ctx.mode === "work") {
-    // Next class (today or later in the week).
+    // Next class (today or later in the week)
     if (ctx.next) {
       items.push({
         key: `class-${ctx.next.entry.id}`,
         title: ctx.next.entry.subject,
-        detail: [ctx.next.dayLabel === "Today" ? null : ctx.next.dayLabel, ctx.next.timeRange, ctx.next.entry.room].filter(Boolean).join(" · "),
+        detail: [ctx.next.dayLabel === "Today" ? null : ctx.next.dayLabel, ctx.next.timeRange, ctx.next.entry.room]
+          .filter(Boolean)
+          .join(" · "),
         when: ctx.next.dayLabel,
       });
     }
-    // Next work meeting.
+    // Next work meeting
     const meeting = ctx.meetings
       .filter((m) => m.mode === "work" && (m.date > today || (m.date === today && toMinutes(m.startTime) > t)))
       .sort((a, b) => a.date.localeCompare(b.date) || toMinutes(a.startTime) - toMinutes(b.startTime))[0];
@@ -98,7 +108,7 @@ function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextIt
         href: "/meetings",
       });
     }
-    // Next work task with a due date.
+    // Next work task with a due date
     const task = ctx.tasks
       .filter((task) => !task.completed && task.mode === "work" && task.dueDate && task.dueDate >= today)
       .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
@@ -112,7 +122,7 @@ function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextIt
       });
     }
   } else {
-    // Personal: PhD deadline first.
+    // Personal: PhD deadline first (Personal mode ONLY)
     const closing = nextDeadline(applications);
     if (closing) {
       items.push({
@@ -123,7 +133,7 @@ function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextIt
         href: `/applications/${closing.app.id}`,
       });
     }
-    // Workout when still ahead today.
+    // Workout when still ahead today
     if (ctx.workout.enabled && t < toMinutes(ctx.workout.startTime)) {
       items.push({
         key: "workout",
@@ -133,7 +143,7 @@ function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextIt
         href: "/workout",
       });
     }
-    // Next personal routine still ahead today.
+    // Next personal routine still ahead today
     const dayIdx = (now.getDay() + 6) % 7; // 0 = Monday, matching routines
     const routine = ctx.routines
       .filter((r) => r.enabled && r.mode === "personal" && r.daysOfWeek.includes(dayIdx) && toMinutes(r.startTime) > t)
@@ -148,7 +158,7 @@ function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextIt
         href: "/daily",
       });
     }
-    // Next personal task.
+    // Next personal task
     const task = ctx.tasks
       .filter((task) => !task.completed && task.mode === "personal" && task.dueDate && task.dueDate >= today)
       .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
@@ -175,7 +185,7 @@ function subscribeToClock(onStoreChange: () => void): () => void {
   clockSubscribers.add(onStoreChange);
   if (!clockTimer) {
     clockTimer = setInterval(() => {
-      clockNow = new Date(); // update the snapshot BEFORE notifying subscribers
+      clockNow = new Date();
       for (const notify of clockSubscribers) notify();
     }, 30_000);
   }
@@ -197,8 +207,6 @@ const WEEKDAYS = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDA
 const MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
 
 export function HomePage({ applications, tree, os, mode }: Props) {
-  const { user } = useAuth();
-  const { status, isSyncing, syncNow, errorMessage } = useSyncStatus(user?.uid);
   const now = useNow();
   const ctx = buildModeContext(applications, tree, os, mode, now);
   const action = findUnifiedNextAction(ctx);
@@ -210,56 +218,30 @@ export function HomePage({ applications, tree, os, mode }: Props) {
   // Live time context for the hero: what's running now, and what follows it.
   const currentLeft = ctx.current ? timeLeftLabel(ctx.current.entry.endTime, now) : null;
   const nextStartsIn = ctx.next && ctx.next.dayLabel === "Today" ? startsInLabel(ctx.next.entry.startTime, now) : null;
-  // Contextual free-window text, e.g. "Nothing scheduled until 10:50 AM".
   const freeUntil =
     !ctx.current && ctx.next && ctx.next.dayLabel === "Today" ? `Nothing scheduled until ${formatTime12(ctx.next.entry.startTime)}` : null;
 
   return (
     <section className="page-enter mx-auto max-w-2xl px-5 pb-10 pt-7">
       <div className="w-full">
-        {/* Contextual header — the mode is the eyebrow; the wordmark lives in the global header. */}
+        {/* Minimal Contextual Header with Animated Dotted Rabbit */}
         <header className="text-center">
-          <div className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{mode === "work" ? "WORK" : "PERSONAL"}</div>
-          <div className="mt-2 font-serif text-2xl font-semibold tracking-wide text-[#242424]">{dateLine}</div>
-          <div className="mt-1 text-sm text-stone-500">{timeLine}</div>
-
-          {/* Manual Sync Now Button & Subtle Status */}
-          {user && (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => void syncNow()}
-                disabled={isSyncing}
-                aria-label="Sync Now"
-                className="focus-ring inline-flex min-h-8 items-center gap-1.5 rounded-full border border-stone-300/80 bg-[#FFFCF7] px-3.5 py-1 text-xs font-medium text-stone-700 shadow-2xs hover:bg-stone-100 disabled:opacity-60 transition-colors cursor-pointer"
-              >
-                <RefreshCw size={12} className={isSyncing ? "animate-spin text-[var(--primary)]" : "text-stone-500"} />
-                <span>Sync Now</span>
-              </button>
-              <span className="text-[11px] font-medium text-stone-500 inline-flex items-center gap-1">
-                {status === "syncing" && <span className="text-amber-700">Syncing…</span>}
-                {status === "synced" && (
-                  <span className="text-emerald-700 inline-flex items-center gap-1">
-                    <Check size={12} className="text-emerald-600" /> Synced
-                  </span>
-                )}
-                {status === "error" && (
-                  <span className="text-rose-700 inline-flex items-center gap-1">
-                    <AlertCircle size={12} className="text-rose-600 shrink-0" />
-                    <span>Sync failed{errorMessage ? ` — ${errorMessage}` : ""}</span>
-                  </span>
-                )}
-                {status === "offline" && <span className="text-stone-400">Offline</span>}
-                {status === "idle" && <span className="text-stone-400">Synced</span>}
-              </span>
-            </div>
-          )}
+          <div className="flex justify-center mb-2.5">
+            <DottedRabbit size="md" />
+          </div>
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">
+            {mode === "work" ? "WORK" : "PERSONAL"}
+          </div>
+          <div className="mt-1.5 font-serif text-2xl font-semibold tracking-wide text-[#242424]">
+            {dateLine}
+          </div>
+          <div className="mt-0.5 text-sm text-stone-500">{timeLine}</div>
         </header>
 
         {/* Primary action — the answer to "what should I do now?" */}
-        <div className="mx-auto mt-10 max-w-xl text-center">
-          <p className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-stone-500">YOUR NEXT THING TO DO</p>
-          <div className="card-shadow card-shadow-hover rounded-lg border border-stone-300/70 bg-[#FFFCF7] p-6 text-left">
+        <div className="mx-auto mt-8 max-w-xl text-center">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">YOUR NEXT THING TO DO</p>
+          <div className="card-shadow card-shadow-hover rounded-xl border border-stone-300/70 bg-[#FFFCF7] p-6 text-left">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">{action.label}</div>
             <h2 className="text-balance mt-2 text-2xl font-semibold leading-tight">{action.title}</h2>
             {action.subtitle && <p className="mt-2 text-sm text-stone-600">{action.subtitle}</p>}
@@ -270,7 +252,7 @@ export function HomePage({ applications, tree, os, mode }: Props) {
             {action.urgency && !currentLeft && !freeUntil && <p className="mt-2 text-sm text-stone-500">{action.urgency}</p>}
             {action.href && (
               <Link
-                className="focus-ring mt-5 inline-flex items-center gap-2 rounded-md px-5 py-3 text-sm font-semibold text-white shadow-sm"
+                className="focus-ring mt-5 inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:opacity-95 transition-opacity"
                 style={{ backgroundColor: "var(--primary)" }}
                 to={action.href}
               >
@@ -280,14 +262,15 @@ export function HomePage({ applications, tree, os, mode }: Props) {
           </div>
         </div>
 
+        {/* Up Next List */}
         {upNext.length > 0 && (
-          <div className="mx-auto mt-12 max-w-xl border-t border-stone-300/70 pt-6">
+          <div className="mx-auto mt-10 max-w-xl border-t border-stone-300/70 pt-6">
             <div className="text-center text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">UP NEXT</div>
             <div className="mt-4 space-y-2">
               {upNext.map((item) => (
                 <div
                   key={item.key}
-                  className="card-shadow card-shadow-hover flex items-center justify-between gap-3 rounded-md border border-stone-200 bg-[#FFFCF7] px-3 py-2.5 text-sm"
+                  className="card-shadow card-shadow-hover flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-[#FFFCF7] px-3.5 py-2.5 text-sm"
                 >
                   <span className="min-w-0 flex-1 truncate">
                     {item.href ? (
@@ -307,14 +290,14 @@ export function HomePage({ applications, tree, os, mode }: Props) {
           </div>
         )}
 
-        {/* Visual Calendar — both Work and Personal modes */}
-        <div className="mx-auto mt-12 max-w-xl border-t border-stone-300/70 pt-6">
+        {/* Visual Calendar — dot grid time visualization */}
+        <div className="mx-auto mt-10 max-w-xl border-t border-stone-300/70 pt-6">
           <VisualCalendar mode={mode} />
         </div>
 
-        {/* Lower content: Quick Ideas — Personal ONLY */}
+        {/* Quick Ideas — Personal Mode ONLY */}
         {mode === "personal" && (
-          <div className="mx-auto mt-12 max-w-xl border-t border-stone-300/70 pt-6">
+          <div className="mx-auto mt-10 max-w-xl border-t border-stone-300/70 pt-6">
             <QuickIdeas />
           </div>
         )}
@@ -322,4 +305,3 @@ export function HomePage({ applications, tree, os, mode }: Props) {
     </section>
   );
 }
-

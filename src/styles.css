@@ -13,12 +13,176 @@
   --accent: #f9cdd5;
 }
 
-/* Personal theme: olive primary, blush accent — same warm cream + charcoal */
-[data-theme="personal"] {
+/* Personal theme default fallback: olive primary, blush accent */
+[data-theme="personal"]:not([data-palette]),
+[data-theme="personal"][data-palette="auto"] {
   --primary: #7a8450;
   --primary-hover: #6a7442;
   --primary-tint: rgba(122, 132, 80, 0.12);
   --primary-border: rgba(122, 132, 80, 0.45);
+  --accent: #e8eacf;
+}
+
+/* Explicit Maroon theme */
+[data-palette="maroon"] {
+  --primary: #6b1f2a;
+  --primary-hover: #591923;
+  --primary-tint: rgba(107, 31, 42, 0.08);
+  --primary-border: rgba(107, 31, 42, 0.4);
+  --accent: #f9cdd5;
+}
+
+/* Explicit Matcha theme */
+[data-palette="matcha"] {
+  --primary: #7a8450;
+  --primary-hover: #6a7442;
+  --primary-tint: rgba(122, 132, 80, 0.12);
+  --primary-border: rgba(122, 132, 80, 0.45);
+  --accent: #e8eacf;
+}
+
+/* Ocean theme: deep Nordic navy */
+[data-palette="ocean"] {
+  --primary: #25526c;
+  --primary-hover: #1b3e52;
+  --primary-tint: rgba(37, 82, 108, 0.09);
+  --primary-border: rgba(37, 82, 108, 0.38);
+  --accent: #cfe2ec;
+}
+
+/* Lavender theme: muted dusty lavender */
+[data-palette="lavender"] {
+  --primary: #6b567a;
+  --primary-hover: #574465;
+  --primary-tint: rgba(107, 86, 122, 0.09);
+  --primary-border: rgba(107, 86, 122, 0.38);
+  --accent: #e3d8eb;
+}
+
+/* Terracotta theme: warm desert terracotta */
+[data-palette="terracotta"] {
+  --primary: #8a422d;
+  --primary-hover: #733422;
+  --primary-tint: rgba(138, 66, 45, 0.09);
+  --primary-border: rgba(138, 66, 45, 0.38);
+  --accent: #f5d6cb;
+}
+
+/* Midnight theme: deep charcoal with warm off-white and gold accent */
+[data-palette="midnight"] {
+  --primary: #c29b38;
+  --primary-hover: #a8842a;
+  --primary-tint: rgba(194, 155, 56, 0.15);
+  --primary-border: rgba(194, 155, 56, 0.45);
+  --accent: #3a3424;
+}
+
+/* Midnight dark mode adjustments */
+html[data-palette="midnight"],
+html[data-palette="midnight"] body {
+  background: #18181b !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-palette="midnight"] .app-root {
+  background: #18181b !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-palette="midnight"] aside,
+html[data-palette="midnight"] header,
+html[data-palette="midnight"] nav {
+  background-color: #202024 !important;
+  border-color: rgba(63, 63, 70, 0.7) !important;
+}
+
+html[data-palette="midnight"] .bg-\[\#FFFCF7\],
+html[data-palette="midnight"] .bg-\[\#F7F3ED\] {
+  background-color: #222226 !important;
+}
+
+html[data-palette="midnight"] .text-\[\#242424\] {
+  color: #f4f4f5 !important;
+}
+
+html[data-palette="midnight"] .text-stone-700,
+html[data-palette="midnight"] .text-stone-800 {
+  color: #e4e4e7 !important;
+}
+
+html[data-palette="midnight"] .text-stone-500,
+html[data-palette="midnight"] .text-stone-600 {
+  color: #a1a1aa !important;
+}
+
+html[data-palette="midnight"] .border-stone-200,
+html[data-palette="midnight"] .border-stone-300,
+html[data-palette="midnight"] .border-stone-300\/70,
+html[data-palette="midnight"] .border-stone-300\/80 {
+  border-color: rgba(63, 63, 70, 0.6) !important;
+}
+
+html[data-palette="midnight"] .hover\:bg-stone-100:hover {
+  background-color: #2a2a30 !important;
+}
+
+/* ================= Dotted Rabbit Animations ================= */
+.rabbit-body {
+  transform-origin: center bottom;
+  animation: rabbit-breathe 4s ease-in-out infinite;
+}
+
+.rabbit-ears {
+  transform-origin: 20px 16px;
+  animation: rabbit-ear-twitch 6s ease-in-out infinite;
+}
+
+.rabbit-eye {
+  transform-origin: 24px 18px;
+  animation: rabbit-eye-blink 5s ease-in-out infinite;
+}
+
+@keyframes rabbit-breathe {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+@keyframes rabbit-ear-twitch {
+  0%, 82%, 100% {
+    transform: rotate(0deg);
+  }
+  85% {
+    transform: rotate(-3.5deg);
+  }
+  88% {
+    transform: rotate(2.5deg);
+  }
+  91% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes rabbit-eye-blink {
+  0%, 94%, 98%, 100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  96% {
+    opacity: 0.2;
+    transform: scaleY(0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rabbit-body,
+  .rabbit-ears,
+  .rabbit-eye {
+    animation: none !important;
+  }
 }
 
 body {

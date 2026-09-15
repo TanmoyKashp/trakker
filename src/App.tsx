@@ -61,7 +61,14 @@ function AppContent() {
     <Routes>
       <Route
         element={
-          <AppShell offline={data.offline} error={data.loadError} mode={os.os.mode} onModeChange={os.setMode} />
+          <AppShell
+            offline={data.offline}
+            error={data.loadError}
+            mode={os.os.mode}
+            onModeChange={os.setMode}
+            initialTheme={os.os.theme}
+            onThemePersist={os.setTheme}
+          />
         }
       >
         <Route
@@ -73,7 +80,7 @@ function AppContent() {
         <Route
           path="/today"
           element={
-            <TodayPage applications={data.applications} tree={data.tree} osState={os.os} os={os} />
+            <TodayPage osState={os.os} os={os} />
           }
         />
         <Route path="/timetable" element={<TimetablePage />} />

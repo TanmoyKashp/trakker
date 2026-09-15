@@ -35,6 +35,7 @@ export interface FirestoreOsData {
   workout: WorkoutSettings;
   workouts: WorkoutItem[];
   goals: Goal[];
+  theme?: string;
   updatedAt: string;
 }
 
@@ -429,6 +430,7 @@ export async function performFullSync(uid: string): Promise<boolean> {
         workout: remoteOs?.workout || localOs?.workout || { enabled: true, startTime: "17:00" },
         workouts: mergedWorkouts.length ? mergedWorkouts : (localOs?.workouts || []),
         goals: mergedGoals,
+        theme: remoteOs?.theme || localOs?.theme,
         updatedAt: nowIso,
       };
 
@@ -448,6 +450,7 @@ export async function performFullSync(uid: string): Promise<boolean> {
         workout: mergedOs.workout,
         workouts: mergedOs.workouts,
         goals: mergedOs.goals,
+        theme: mergedOs.theme,
         updatedAt: nowIso,
       });
 
@@ -597,6 +600,7 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
         workout: remote.workout || local?.workout || { enabled: true, startTime: "17:00" },
         workouts: mergedWorkouts.length ? mergedWorkouts : (local?.workouts || []),
         goals: mergedGoals,
+        theme: remote.theme || local?.theme,
         updatedAt: remote.updatedAt,
       };
 
@@ -734,6 +738,7 @@ export function syncOsToFirestore(uid: string, state: TrakkerOsState) {
       workout: state.workout,
       workouts: state.workouts,
       goals: state.goals,
+      theme: state.theme,
       updatedAt: state.updatedAt || nowIso,
     });
     const osDocRef = doc(firestore, "users", uid, "data", "os");
