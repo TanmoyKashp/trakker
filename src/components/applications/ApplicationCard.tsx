@@ -13,7 +13,7 @@ export function ApplicationCard({ app }: { app: Application }) {
   const deadline = deadlineState(app.deadline, app.deadlineText, app.sourceStatus);
   const nextTask = firstIncompleteRequiredTask(app);
   return (
-    <Link to={`/applications/${app.id}`} className="focus-ring block rounded-lg border border-stone-300/70 bg-[#FFFCF7] p-4 shadow-sm transition hover:border-[#6B1F2A]/40">
+    <Link to={`/applications/${app.id}`} className="focus-ring block rounded-lg border border-stone-300/70 bg-[#FFFCF7] p-4 shadow-sm transition hover:border-[var(--primary)]/40">
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="line-clamp-2 text-base font-semibold leading-snug text-[#242424]">{app.opportunity}</h2>
@@ -33,7 +33,7 @@ export function ApplicationCard({ app }: { app: Application }) {
         </div>
         <ProgressBar percent={progress.percent} />
       </div>
-      {nextTask && <div className="mt-3 line-clamp-1 text-xs font-semibold text-[#6B1F2A]">NEXT → {nextTask.title}</div>}
+      {nextTask && <div className="mt-3 line-clamp-1 text-xs font-semibold text-[var(--primary)]">NEXT → {nextTask.title}</div>}
       <p className="mt-3 line-clamp-1 text-xs text-stone-600">{app.funding || "Funding not specified"}</p>
       <div className="mt-2 flex flex-wrap gap-1">
         {app.researchAreas.slice(0, 3).map((area) => (

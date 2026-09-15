@@ -10,7 +10,7 @@ export function StatusPage({ applications }: { applications: Application[] }) {
   const activeStages = stageOptions.filter((stage) => !["rejected", "expired", "withdrawn"].includes(stage.value));
   const terminalStages = stageOptions.filter((stage) => ["rejected", "expired", "withdrawn"].includes(stage.value));
   return (
-    <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+    <section className="page-enter mx-auto max-w-7xl px-4 py-5 sm:px-6">
       <header className="mb-4">
         <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
         <h1 className="text-2xl font-semibold">Status</h1>
@@ -41,7 +41,7 @@ export function StatusPage({ applications }: { applications: Application[] }) {
                 const progress = calculateProgress(app.tasks);
                 return (
                   <tr key={app.id} className="hover:bg-stone-100/60">
-                    <td className="px-4 py-3 font-medium"><Link className="focus-ring rounded text-[#6B1F2A]" to={`/applications/${app.id}`}>{app.institution}</Link></td>
+                    <td className="px-4 py-3 font-medium"><Link className="focus-ring rounded text-[var(--primary)]" to={`/applications/${app.id}`}>{app.institution}</Link></td>
                     <td className="max-w-md px-4 py-3">{app.opportunity}</td>
                     <td className="px-4 py-3">{formatDate(app.deadline)}</td>
                     <td className="px-4 py-3"><Badge tone={app.stage}>{stageLabel(app.stage)}</Badge></td>
@@ -70,7 +70,7 @@ function StageColumn({ stage, applications }: { stage: ApplicationStage; applica
         </div>
       </div>
       <div className="mt-3 space-y-2">
-        {items.slice(0, 3).map((app) => <Link key={app.id} to={`/applications/${app.id}`} className="focus-ring block rounded-md border border-stone-200 p-2 text-xs hover:border-[#6B1F2A]/40"><div className="font-medium">{app.institution}</div><div className="truncate text-stone-500">{app.applicationDate ? `Submitted · ${formatDate(app.applicationDate)}` : app.opportunity}</div></Link>)}
+        {items.slice(0, 3).map((app) => <Link key={app.id} to={`/applications/${app.id}`} className="focus-ring block rounded-md border border-stone-200 p-2 text-xs hover:border-[var(--primary)]/40"><div className="font-medium">{app.institution}</div><div className="truncate text-stone-500">{app.applicationDate ? `Submitted · ${formatDate(app.applicationDate)}` : app.opportunity}</div></Link>)}
         {!items.length && <div className="text-xs text-stone-500">No applications in this stage.</div>}
       </div>
     </div>

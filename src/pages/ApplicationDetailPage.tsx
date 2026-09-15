@@ -49,8 +49,8 @@ export function ApplicationDetailPage({ applications, updateApplication }: Props
 
   if (!app) {
     return (
-      <section className="mx-auto max-w-4xl px-4 py-8">
-        <Link className="text-sm text-[#6B1F2A]" to="/applications">Back to Applications</Link>
+      <section className="page-enter mx-auto max-w-4xl px-4 py-8">
+        <Link className="text-sm text-[var(--primary)]" to="/applications">Back to Applications</Link>
         <div className="mt-6 rounded-lg border border-stone-300/70 bg-[#FFFCF7] p-8">Application not found.</div>
       </section>
     );
@@ -90,7 +90,7 @@ export function ApplicationDetailPage({ applications, updateApplication }: Props
   }
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+    <section className="page-enter mx-auto max-w-6xl px-4 py-5 sm:px-6">
       <button className="focus-ring mb-4 inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm text-stone-600 hover:bg-stone-100" onClick={() => navigate("/applications")}>
         <ArrowLeft size={16} /> Applications
       </button>
@@ -127,7 +127,7 @@ export function ApplicationDetailPage({ applications, updateApplication }: Props
                 <label className="text-sm">International<input className="mt-1 w-full rounded-md border px-2 py-2" value={draft.international} onChange={(e) => setDraft({ ...draft, international: e.target.value })} /></label>
                 <label className="text-sm">Official URL<input type="url" className="mt-1 w-full rounded-md border px-2 py-2" value={draft.officialUrl} onChange={(e) => setDraft({ ...draft, officialUrl: e.target.value })} /></label>
                 <label className="text-sm sm:col-span-2">Notes<textarea className="mt-1 min-h-24 w-full rounded-md border px-2 py-2" value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} /></label>
-                <button className="focus-ring rounded-md bg-[#6B1F2A] px-3 py-2 text-sm font-medium text-white sm:col-span-2">Save changes</button>
+                <button className="focus-ring rounded-md bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white sm:col-span-2">Save changes</button>
               </>
             ) : (
               <>
@@ -139,7 +139,7 @@ export function ApplicationDetailPage({ applications, updateApplication }: Props
                 <Info label="Source verification" value={app.sourceVerification} />
                 <Info label="Key notes" value={app.keyNotes} wide />
                 <Info label="Notes" value={app.notes} wide />
-                {app.officialUrl ? <a className="focus-ring inline-flex items-center gap-1 text-sm text-[#6B1F2A]" href={app.officialUrl} target="_blank" rel="noreferrer">Official vacancy <ExternalLink size={14} /></a> : <Info label="Official vacancy URL" value={null} />}
+                {app.officialUrl ? <a className="focus-ring inline-flex items-center gap-1 text-sm text-[var(--primary)]" href={app.officialUrl} target="_blank" rel="noreferrer">Official vacancy <ExternalLink size={14} /></a> : <Info label="Official vacancy URL" value={null} />}
               </>
             )}
           </div>

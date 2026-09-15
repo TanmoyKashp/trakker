@@ -72,13 +72,13 @@ export function ApplicationsPage({ applications, createApplication, resetLocalDa
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+    <section className="page-enter mx-auto max-w-7xl px-4 py-5 sm:px-6">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
           <h1 className="text-2xl font-semibold">Applications</h1>
         </div>
-        <button className="focus-ring inline-flex items-center gap-2 rounded-md bg-[#6B1F2A] px-3 py-2 text-sm font-medium text-white hover:bg-[#591923]" onClick={() => setShowForm((value) => !value)}>
+        <button className="focus-ring inline-flex items-center gap-2 rounded-md bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)]" onClick={() => setShowForm((value) => !value)}>
           <Plus size={16} /> New Application
         </button>
       </header>
@@ -104,7 +104,7 @@ export function ApplicationsPage({ applications, createApplication, resetLocalDa
           <label className="text-sm">International<input className="mt-1 w-full rounded-md border border-stone-300 px-2 py-2" value={form.international} onChange={(e) => setForm({ ...form, international: e.target.value })} /></label>
           <label className="text-sm sm:col-span-2">Official URL<input type="url" className="mt-1 w-full rounded-md border border-stone-300 px-2 py-2" value={form.officialUrl} onChange={(e) => setForm({ ...form, officialUrl: e.target.value })} /></label>
           <label className="text-sm sm:col-span-2">Notes<textarea className="mt-1 min-h-20 w-full rounded-md border border-stone-300 px-2 py-2" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
-          <div className="sm:col-span-2 lg:col-span-4"><button className="focus-ring rounded-md bg-[#6B1F2A] px-3 py-2 text-sm font-medium text-white">Create application</button></div>
+          <div className="sm:col-span-2 lg:col-span-4"><button className="focus-ring rounded-md bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white">Create application</button></div>
         </form>
       )}
 

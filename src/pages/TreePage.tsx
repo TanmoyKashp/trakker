@@ -49,7 +49,7 @@ export function TreePage({ tree, coreAssets, localState, toggleTreeExpanded, set
   }, [query, tree]);
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+    <section className="page-enter mx-auto max-w-7xl px-4 py-5 sm:px-6">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
         <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
@@ -103,7 +103,7 @@ function TreeRow({ node, tree, depth, selected, visibleIds, expanded, onSelect, 
   if (visibleIds && !visibleIds.has(node.id)) return null;
   return (
     <div>
-      <div className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm ${selected === node.id ? "bg-[#6B1F2A]/10" : "hover:bg-stone-100"}`} style={{ paddingLeft: `${8 + depth * 18}px` }}>
+      <div className={`flex items-center gap-2 rounded-md px-2 py-2 text-sm ${selected === node.id ? "bg-[var(--primary)]/10" : "hover:bg-stone-100"}`} style={{ paddingLeft: `${8 + depth * 18}px` }}>
         <button className="focus-ring rounded p-1" aria-label={isExpanded ? "Collapse node" : "Expand node"} onClick={() => onToggle(node.id)} disabled={!children.length}>
           {children.length ? (isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />) : <span className="block w-[15px]" />}
         </button>

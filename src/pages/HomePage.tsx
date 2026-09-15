@@ -1,34 +1,242 @@
-import { ArrowRight } from "lucide-react";
+import { useSyncExternalStore } from "react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { findNextAction, nextDeadline } from "../lib/nextAction";
-import type { Application, TreeNodeRecord } from "../types";
+import { findUnifiedNextAction, nextDeadline, type UnifiedContext } from "../lib/nextAction";
+import { dateToHHMM, entryTimeRange, formatTime12, getScheduleSnapshot, toMinutes } from "../lib/time";
+import { todayISO } from "../hooks/useTrakkerOs";
+import type { Application, Mode, TrakkerOsState, TreeNodeRecord } from "../types";
 
-export function HomePage({ applications, tree }: { applications: Application[]; tree: TreeNodeRecord[] }) {
-  const action = findNextAction(applications, tree);
-  const closing = nextDeadline(applications);
+interface Props {
+  applications: Application[];
+  tree: TreeNodeRecord[];
+  os: TrakkerOsState;
+  mode: Mode;
+}
+
+/** The single, mode-isolated "what should I be doing now" engine call. */
+export function buildModeContext(applications: Application[], tree: TreeNodeRecord[], os: TrakkerOsState, mode: Mode, now: Date = new Date()): UnifiedContext {
+  const snapshot = getScheduleSnapshot(now);
+  return {
+    mode,
+    now: snapshot.now,
+    current: snapshot.current ? { entry: snapshot.current, timeRange: entryTimeRange(snapshot.current) } : null,
+    next: snapshot.next
+      ? { entry: snapshot.next.entry, timeRange: entryTimeRange(snapshot.next.entry), dayLabel: snapshot.next.dayLabel }
+      : null,
+    officeHoursActive: snapshot.officeHoursActive,
+    breakLabel: snapshot.break?.label ?? null,
+    tasks: os.tasks,
+    meetings: os.meetings,
+    routines: os.routines,
+    routineCompletions: os.routineCompletions,
+    workout: os.workout,
+    phdApplications: applications,
+    phdTree: tree,
+  };
+}
+
+interface UpNextItem {
+  key: string;
+  title: string;
+  detail: string;
+  when: string;
+  href?: string;
+}
+
+/** 1–3 upcoming items, strictly filtered by mode. */
+function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextItem[] {
+  const items: UpNextItem[] = [];
+  const now = ctx.now;
+  const today = todayISO(now);
+  const t = toMinutes(dateToHHMM(now));
+
+  if (ctx.mode === "work") {
+    // Next class (today or later in the week).
+    if (ctx.next) {
+      items.push({
+        key: `class-${ctx.next.entry.id}`,
+        title: ctx.next.entry.subject,
+        detail: [ctx.next.dayLabel === "Today" ? null : ctx.next.dayLabel, ctx.next.timeRange, ctx.next.entry.room].filter(Boolean).join(" · "),
+        when: ctx.next.dayLabel,
+      });
+    }
+    // Next work meeting.
+    const meeting = ctx.meetings
+      .filter((m) => m.mode === "work" && (m.date > today || (m.date === today && toMinutes(m.startTime) > t)))
+      .sort((a, b) => a.date.localeCompare(b.date) || toMinutes(a.startTime) - toMinutes(b.startTime))[0];
+    if (meeting) {
+      items.push({
+        key: `meeting-${meeting.id}`,
+        title: meeting.title,
+        detail: [meeting.date === today ? null : meeting.date, `${formatTime12(meeting.startTime)}–${formatTime12(meeting.endTime)}`, meeting.location ?? null]
+          .filter(Boolean)
+          .join(" · "),
+        when: meeting.date === today ? "Today" : meeting.date,
+        href: "/meetings",
+      });
+    }
+    // Next work task with a due date.
+    const task = ctx.tasks
+      .filter((task) => !task.completed && task.mode === "work" && task.dueDate && task.dueDate >= today)
+      .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
+    if (task) {
+      items.push({
+        key: `task-${task.id}`,
+        title: task.title,
+        detail: "Work task",
+        when: task.dueDate === today ? "Today" : (task.dueDate ?? ""),
+        href: "/tasks",
+      });
+    }
+  } else {
+    // Personal: PhD deadline first.
+    const closing = nextDeadline(applications);
+    if (closing) {
+      items.push({
+        key: `phd-${closing.app.id}`,
+        title: closing.app.opportunity,
+        detail: closing.app.institution,
+        when: closing.deadline.label,
+        href: `/applications/${closing.app.id}`,
+      });
+    }
+    // Workout when still ahead today.
+    if (ctx.workout.enabled && t < toMinutes(ctx.workout.startTime)) {
+      items.push({
+        key: "workout",
+        title: "Workout",
+        detail: "Personal appointment",
+        when: formatTime12(ctx.workout.startTime),
+        href: "/workout",
+      });
+    }
+    // Next personal routine still ahead today.
+    const dayIdx = (now.getDay() + 6) % 7; // 0 = Monday, matching routines
+    const routine = ctx.routines
+      .filter((r) => r.enabled && r.mode === "personal" && r.daysOfWeek.includes(dayIdx) && toMinutes(r.startTime) > t)
+      .filter((r) => !ctx.routineCompletions[`${r.id}:${today}`])
+      .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime))[0];
+    if (routine) {
+      items.push({
+        key: `routine-${routine.id}`,
+        title: routine.title,
+        detail: "Routine",
+        when: formatTime12(routine.startTime),
+        href: "/daily",
+      });
+    }
+    // Next personal task.
+    const task = ctx.tasks
+      .filter((task) => !task.completed && task.mode === "personal" && task.dueDate && task.dueDate >= today)
+      .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
+    if (task) {
+      items.push({
+        key: `ptask-${task.id}`,
+        title: task.title,
+        detail: "Personal task",
+        when: task.dueDate === today ? "Today" : (task.dueDate ?? ""),
+        href: "/daily",
+      });
+    }
+  }
+
+  return items.slice(0, 3);
+}
+
+/** Shared live clock: one 30s interval no matter how many components subscribe. */
+const clockSubscribers = new Set<() => void>();
+let clockTimer: ReturnType<typeof setInterval> | null = null;
+let clockNow = new Date();
+
+function subscribeToClock(onStoreChange: () => void): () => void {
+  clockSubscribers.add(onStoreChange);
+  if (!clockTimer) {
+    clockTimer = setInterval(() => {
+      clockNow = new Date(); // update the snapshot BEFORE notifying subscribers
+      for (const notify of clockSubscribers) notify();
+    }, 30_000);
+  }
+  return () => {
+    clockSubscribers.delete(onStoreChange);
+    if (clockSubscribers.size === 0 && clockTimer) {
+      clearInterval(clockTimer);
+      clockTimer = null;
+    }
+  };
+}
+
+function useNow(): Date {
+  return useSyncExternalStore(subscribeToClock, () => clockNow);
+}
+
+const WEEKDAYS = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+const MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+
+export function HomePage({ applications, tree, os, mode }: Props) {
+  const now = useNow();
+  const ctx = buildModeContext(applications, tree, os, mode, now);
+  const action = findUnifiedNextAction(ctx);
+  const upNext = buildUpNext(ctx, applications);
+
+  const dateLine = `${WEEKDAYS[now.getDay()]} · ${now.getDate()} ${MONTHS[now.getMonth()]}`;
+  const timeLine = formatTime12(dateToHHMM(now));
 
   return (
-    <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-5 py-12">
-      <div className="w-full max-w-2xl text-center">
-        <h1 className="mb-16 font-serif text-5xl font-semibold tracking-[0.18em] text-[#242424] sm:text-7xl">TRAKKER</h1>
-        <p className="mb-5 text-sm font-medium uppercase tracking-[0.18em] text-stone-500">Your next thing to do</p>
-        <div className="mx-auto max-w-xl">
-          <h2 className="text-balance text-3xl font-semibold leading-tight text-[#242424] sm:text-4xl">{action.title}</h2>
-          {action.context && <p className="mt-4 text-base text-stone-600">{action.context}</p>}
-          {action.urgency && <p className="mt-3 text-sm font-medium text-[#6B1F2A]">{action.urgency}</p>}
-          {action.href && (
-            <Link className="focus-ring mt-8 inline-flex items-center gap-2 rounded-md bg-[#6B1F2A] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#591923]" to={action.href}>
-              Do it <ArrowRight size={16} />
-            </Link>
-          )}
+    <section className="page-enter flex min-h-[calc(100vh-9rem)] items-center justify-center px-5 py-12">
+      <div className="w-full max-w-2xl">
+        {/* Contextual header */}
+        <header className="mb-14 text-center">
+          <div className="font-serif text-sm font-semibold tracking-[0.28em] text-[var(--primary)]">TRAKKER</div>
+          <div className="mt-2 text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{mode === "work" ? "WORK" : "PERSONAL"}</div>
+          <div className="mt-6 font-serif text-2xl font-semibold tracking-wide text-[#242424]">{dateLine}</div>
+          <div className="mt-1 text-sm text-stone-500">{timeLine}</div>
+        </header>
+
+        {/* Primary action — the answer to "what should I do now?" */}
+        <div className="mx-auto max-w-xl text-center">
+          <p className="mb-5 text-sm font-medium uppercase tracking-[0.18em] text-stone-500">YOUR NEXT THING TO DO</p>
+          <div className="card-shadow card-shadow-hover rounded-lg border border-stone-300/70 bg-[#FFFCF7] p-7 text-left">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">{action.label}</div>
+            <h2 className="text-balance mt-2 text-2xl font-semibold leading-tight">{action.title}</h2>
+            {action.subtitle && <p className="mt-2 text-sm text-stone-600">{action.subtitle}</p>}
+            {action.time && <p className="mt-3 text-base font-medium text-[var(--primary)]">{action.time}</p>}
+            {action.urgency && <p className="mt-2 text-sm text-stone-500">{action.urgency}</p>}
+            {action.href && (
+              <Link
+                className="focus-ring mt-6 inline-flex items-center gap-2 rounded-md px-5 py-3 text-sm font-semibold text-white shadow-sm"
+                style={{ backgroundColor: "var(--primary)" }}
+                to={action.href}
+              >
+                DO IT <ArrowRight size={16} />
+              </Link>
+            )}
+          </div>
         </div>
-        {closing && (
-          <div className="mx-auto mt-12 max-w-xl border-t border-stone-300 pt-6 text-left">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Next deadline</div>
-            <Link className="focus-ring mt-2 block rounded-md py-1 text-sm text-[#242424] hover:text-[#6B1F2A]" to={`/applications/${closing.app.id}`}>
-              <span className="font-medium">{closing.app.opportunity}</span>
-              <span className="text-stone-500"> · {closing.deadline.label}</span>
-            </Link>
+
+        {upNext.length > 0 && (
+          <div className="mx-auto mt-12 max-w-xl border-t border-stone-300/70 pt-6">
+            <div className="text-center text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">UP NEXT</div>
+            <div className="mt-4 space-y-2">
+              {upNext.map((item) => (
+                <div
+                  key={item.key}
+                  className="card-shadow card-shadow-hover flex items-center justify-between gap-3 rounded-md border border-stone-200 bg-[#FFFCF7] px-3 py-2.5 text-sm"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {item.href ? (
+                      <Link className="focus-ring rounded font-medium hover:text-[var(--primary)]" to={item.href}>
+                        {item.title}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{item.title}</span>
+                    )}
+                    {item.detail && <span className="text-stone-500"> · {item.detail}</span>}
+                  </span>
+                  <span className="shrink-0 text-xs text-stone-500">{item.when}</span>
+                  {item.href && <ChevronRight size={14} className="shrink-0 text-stone-400" />}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

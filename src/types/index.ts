@@ -111,3 +111,65 @@ export interface ReferenceData {
   tree: TreeNodeRecord[];
   coreAssets: CoreAsset[];
 }
+
+// ===== Trakker OS (V2) =====
+
+export type Mode = "work" | "personal";
+
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface Task {
+  id: string;
+  title: string;
+  mode: Mode;
+  createdAt: string;
+  dueDate?: string | null;
+  dueTime?: string | null;
+  priority: TaskPriority;
+  completed: boolean;
+  notes?: string | null;
+}
+
+export interface Meeting {
+  id: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location?: string | null;
+  notes?: string | null;
+  mode: Mode;
+}
+
+export interface Routine {
+  id: string;
+  title: string;
+  mode: Mode;
+  daysOfWeek: number[];
+  startTime: string;
+  enabled: boolean;
+}
+
+export interface WorkoutSettings {
+  enabled: boolean;
+  startTime: string;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  horizon: "week" | "month" | "term";
+  createdAt: string;
+  done: boolean;
+}
+
+export interface TrakkerOsState {
+  version: 2;
+  mode: Mode;
+  tasks: Task[];
+  meetings: Meeting[];
+  routines: Routine[];
+  routineCompletions: Record<string, string>;
+  workout: WorkoutSettings;
+  goals: Goal[];
+}
