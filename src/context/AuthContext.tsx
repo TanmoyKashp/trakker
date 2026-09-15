@@ -10,11 +10,13 @@ import type { User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import {
   db,
+  formatAuthError,
   handleRedirectResult,
   isFirebaseConfigured,
   signInWithGoogle,
   signOut as fbSignOut,
   subscribeToAuth,
+  waitForAuthStateReady,
 } from "../lib/firebase";
 
 interface AuthContextValue {
@@ -76,41 +78,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Handle redirect result and auth state listener
   useEffect(() => {
     let isMounted = true;
+    let unsubscribeAuth: (() => void) | null = null;
 
-    // Safety timeout: Never leave the app stuck on a loading screen
+    if (!isFirebaseConfigured) {
+      setLoading(false);
+      return;
+    }
+
+    // Safety timeout: Never leave the app stuck on a loading screen indefinitely
     const safetyTimer = setTimeout(() => {
-      if (isMounted) setLoading(false);
-    }, 3500);
+      if (isMounted) {
+        setLoading(false);
+      }
+    }, 5000);
 
     async function initAuth() {
+      const wasRedirectPending =
+        typeof window !== "undefined" &&
+        sessionStorage.getItem("trakker:auth:redirect_pending") === "true";
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("trakker:auth:redirect_pending");
+      }
+
+      let redirectUser: User | null = null;
       try {
-        const redirectUser = await handleRedirectResult();
-        if (redirectUser && isMounted) {
-          setUser(redirectUser);
-          await checkOnboardingStatus(redirectUser);
-        }
+        redirectUser = await handleRedirectResult();
       } catch (err: unknown) {
         if (isMounted) {
-          const message =
-            err instanceof Error ? err.message : "Failed to sign in with Google";
-          setError(message);
+          const msg = formatAuthError(err);
+          if (msg) setError(msg);
         }
       }
 
-      const unsubscribe = subscribeToAuth(async (currentUser) => {
+      // Wait for Firebase to finish reading IndexedDB persistence & redirect tokens
+      await waitForAuthStateReady();
+
+      if (!isMounted) return;
+
+      // Check if redirect sign-in was attempted but returned null due to third-party cookie restrictions
+      if (wasRedirectPending && !redirectUser) {
+        console.warn("Redirect sign-in completed without credential (cross-site restriction).");
+        if (isMounted) {
+          setError(
+            "Browser security settings interrupted redirect sign-in. Please click Continue with Google to sign in directly.",
+          );
+        }
+      }
+
+      // Subscribe to continuous auth state updates
+      unsubscribeAuth = subscribeToAuth(async (currentUser) => {
         if (!isMounted) return;
-        setUser(currentUser);
-        if (currentUser) {
-          await checkOnboardingStatus(currentUser);
+
+        const activeUser = currentUser || redirectUser;
+        setUser(activeUser);
+
+        if (activeUser) {
+          await checkOnboardingStatus(activeUser);
         } else {
           setShowOnboarding(false);
         }
-        setLoading(false);
-      });
 
-      return () => {
-        unsubscribe();
-      };
+        if (isMounted) {
+          setLoading(false);
+          clearTimeout(safetyTimer);
+        }
+      });
     }
 
     void initAuth();
@@ -118,6 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
       clearTimeout(safetyTimer);
+      if (unsubscribeAuth) {
+        unsubscribeAuth();
+      }
     };
   }, [checkOnboardingStatus]);
 
@@ -132,9 +167,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await checkOnboardingStatus(signedInUser);
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to sign in with Google";
-      setError(message);
+      const message = formatAuthError(err);
+      if (message) {
+        setError(message);
+      }
       throw err;
     }
   }, [checkOnboardingStatus]);
@@ -148,8 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setShowOnboarding(false);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to sign out";
-      setError(message);
+      const message = formatAuthError(err);
+      if (message) {
+        setError(message);
+      }
     }
   }, []);
 
