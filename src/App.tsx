@@ -10,7 +10,7 @@ import { ApplicationsPage } from "./pages/ApplicationsPage";
 import { DailyPage } from "./pages/DailyPage";
 import { GoalsPage } from "./pages/GoalsPage";
 import { HomePage } from "./pages/HomePage";
-import { LoginPage } from "./pages/LoginPage";
+import { LandingPage } from "./pages/LandingPage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { StatusPage } from "./pages/StatusPage";
@@ -46,9 +46,9 @@ function AppContent() {
     );
   }
 
-  // Unauthenticated users see minimal login screen with "Continue with Google"
+  // Unauthenticated users see public landing page with "Continue with Google"
   if (!user && !isOfflineMode) {
-    return <LoginPage />;
+    return <LandingPage />;
   }
 
   // First-ever login: show onboarding tutorial screen once

@@ -84,9 +84,36 @@ html[data-palette="midnight"] body {
   color: #f4f4f5 !important;
 }
 
-html[data-palette="midnight"] .app-root {
+html[data-palette="midnight"] .app-root,
+html[data-palette="midnight"] .landing-root {
   background: #18181b !important;
   color: #f4f4f5 !important;
+}
+
+html[data-palette="midnight"] .landing-rabbit-card,
+html[data-palette="midnight"] .landing-card {
+  background-color: #222226 !important;
+  border-color: rgba(63, 63, 70, 0.6) !important;
+}
+
+html[data-palette="midnight"] .google-btn {
+  background-color: #222226 !important;
+  color: #f4f4f5 !important;
+  border-color: rgba(63, 63, 70, 0.8) !important;
+}
+
+html[data-palette="midnight"] .google-btn:hover {
+  background-color: #2a2a30 !important;
+}
+
+html[data-palette="ocean"] .landing-root {
+  background-color: #f4f6f8 !important;
+}
+html[data-palette="lavender"] .landing-root {
+  background-color: #f6f4f7 !important;
+}
+html[data-palette="terracotta"] .landing-root {
+  background-color: #f8f4f0 !important;
 }
 
 html[data-palette="midnight"] aside,
@@ -177,10 +204,59 @@ html[data-palette="midnight"] .hover\:bg-stone-100:hover {
   }
 }
 
+@keyframes rabbit-hop-anim {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(2px) scale(1.03, 0.96);
+  }
+  45% {
+    transform: translateY(-14px) scale(0.96, 1.04);
+  }
+  70% {
+    transform: translateY(-3px) scale(0.99, 1.01);
+  }
+  85% {
+    transform: translateY(1.5px) scale(1.02, 0.98);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+.rabbit-hop {
+  transform-origin: center bottom;
+  animation: rabbit-hop-anim 650ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes dot-ripple-anim {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(1.48);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.dot-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dot-ripple-anim 380ms cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rabbit-body,
   .rabbit-ears,
-  .rabbit-eye {
+  .rabbit-eye,
+  .rabbit-hop,
+  .dot-ripple {
     animation: none !important;
   }
 }
