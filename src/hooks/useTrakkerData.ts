@@ -80,7 +80,7 @@ export function useTrakkerData(userId?: string | null) {
   const applications = useMemo(
     () => [
       ...reference.applications.map((app) => mergeApplication(app, localState.applicationOverrides[app.id])),
-      ...localState.customApplications,
+      ...localState.customApplications.filter((app) => !(app as { deletedAt?: string | null }).deletedAt),
     ],
     [reference.applications, localState.applicationOverrides, localState.customApplications],
   );
@@ -89,16 +89,18 @@ export function useTrakkerData(userId?: string | null) {
 
   function updateApplication(id: string, patch: ApplicationOverride) {
     setLocalState((current) => {
+      const nowIso = new Date().toISOString();
       const customIndex = current.customApplications.findIndex((app) => app.id === id);
       if (customIndex >= 0) {
         const nextCustom = [...current.customApplications];
         const existing = nextCustom[customIndex];
-        nextCustom[customIndex] = mergeApplication(existing, patch);
-        return { ...current, customApplications: nextCustom };
+        nextCustom[customIndex] = mergeApplication(existing, { ...patch, updatedAt: nowIso });
+        return { ...current, updatedAt: nowIso, customApplications: nextCustom };
       }
       const existing = current.applicationOverrides[id] ?? {};
       return {
         ...current,
+        updatedAt: nowIso,
         applicationOverrides: {
           ...current.applicationOverrides,
           [id]: {
@@ -109,7 +111,7 @@ export function useTrakkerData(userId?: string | null) {
             taskNotes: { ...existing.taskNotes, ...patch.taskNotes },
             taskEvidence: { ...existing.taskEvidence, ...patch.taskEvidence },
             taskRequired: { ...existing.taskRequired, ...patch.taskRequired },
-            updatedAt: new Date().toISOString(),
+            updatedAt: nowIso,
           },
         },
       };
@@ -150,14 +152,23 @@ export function useTrakkerData(userId?: string | null) {
       updatedAt: now,
       isCustom: true,
     };
-    setLocalState((current) => ({ ...current, customApplications: [...current.customApplications, app] }));
+    setLocalState((current) => ({
+      ...current,
+      updatedAt: now,
+      customApplications: [...current.customApplications, app],
+    }));
     return app;
   }
 
   function updateTreeNode(id: string, patch: { status?: TaskStatus; notes?: string | null }) {
+    const nowIso = new Date().toISOString();
     setLocalState((current) => ({
       ...current,
-      treeOverrides: { ...current.treeOverrides, [id]: { ...current.treeOverrides[id], ...patch } },
+      updatedAt: nowIso,
+      treeOverrides: {
+        ...current.treeOverrides,
+        [id]: { ...current.treeOverrides[id], ...patch, updatedAt: nowIso },
+      },
     }));
   }
 
@@ -180,13 +191,25 @@ export function useTrakkerData(userId?: string | null) {
   }
 
   function deleteApplication(id: string) {
-    setLocalState((current) => ({
-      ...current,
-      customApplications: current.customApplications.filter((app) => app.id !== id),
-      applicationOverrides: Object.fromEntries(
-        Object.entries(current.applicationOverrides).filter(([k]) => k !== id),
-      ),
-    }));
+    const nowIso = new Date().toISOString();
+    setLocalState((current) => {
+      const nextCustom = current.customApplications.map((app) =>
+        app.id === id ? ({ ...app, deletedAt: nowIso, updatedAt: nowIso } as Application) : app,
+      );
+      const existingOverride = current.applicationOverrides[id] ?? {};
+      return {
+        ...current,
+        updatedAt: nowIso,
+        customApplications: nextCustom,
+        applicationOverrides: {
+          ...current.applicationOverrides,
+          [id]: {
+            ...existingOverride,
+            updatedAt: nowIso,
+          },
+        },
+      };
+    });
   }
 
   function resetLocalData() {

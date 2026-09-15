@@ -189,7 +189,7 @@ export function useUndoableTaskDelete(os: TrakkerOs) {
 
   const deleteTask = useCallback(
     (id: string) => {
-      const task = os.os.tasks.find((t) => t.id === id);
+      const task = os.os.tasks.find((t: Task) => t.id === id);
       os.deleteTask(id);
       if (!task) return;
       clearTimer();

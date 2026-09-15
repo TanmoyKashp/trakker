@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, ChevronRight, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatRelativeDue } from "../lib/dates";
 import { findUnifiedNextAction, nextDeadline, type UnifiedContext } from "../lib/nextAction";
@@ -7,6 +7,8 @@ import { dateToHHMM, entryTimeRange, formatTime12, getScheduleSnapshot, toMinute
 import { todayISO } from "../hooks/useTrakkerOs";
 import { VisualCalendar } from "../components/calendar/VisualCalendar";
 import { QuickIdeas } from "../components/ideas/QuickIdeas";
+import { useAuth } from "../context/AuthContext";
+import { useSyncStatus } from "../lib/firestoreSync";
 import type { Application, Mode, TrakkerOsState, TreeNodeRecord } from "../types";
 
 interface Props {
@@ -195,6 +197,8 @@ const WEEKDAYS = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDA
 const MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
 
 export function HomePage({ applications, tree, os, mode }: Props) {
+  const { user } = useAuth();
+  const { status, isSyncing, syncNow } = useSyncStatus(user?.uid);
   const now = useNow();
   const ctx = buildModeContext(applications, tree, os, mode, now);
   const action = findUnifiedNextAction(ctx);
@@ -218,6 +222,37 @@ export function HomePage({ applications, tree, os, mode }: Props) {
           <div className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{mode === "work" ? "WORK" : "PERSONAL"}</div>
           <div className="mt-2 font-serif text-2xl font-semibold tracking-wide text-[#242424]">{dateLine}</div>
           <div className="mt-1 text-sm text-stone-500">{timeLine}</div>
+
+          {/* Manual Sync Now Button & Subtle Status */}
+          {user && (
+            <div className="mt-3 flex items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => void syncNow()}
+                disabled={isSyncing}
+                aria-label="Sync Now"
+                className="focus-ring inline-flex min-h-8 items-center gap-1.5 rounded-full border border-stone-300/80 bg-[#FFFCF7] px-3.5 py-1 text-xs font-medium text-stone-700 shadow-2xs hover:bg-stone-100 disabled:opacity-60 transition-colors cursor-pointer"
+              >
+                <RefreshCw size={12} className={isSyncing ? "animate-spin text-[var(--primary)]" : "text-stone-500"} />
+                <span>Sync Now</span>
+              </button>
+              <span className="text-[11px] font-medium text-stone-500 inline-flex items-center gap-1">
+                {status === "syncing" && <span className="text-amber-700">Syncing…</span>}
+                {status === "synced" && (
+                  <span className="text-emerald-700 inline-flex items-center gap-1">
+                    <Check size={12} className="text-emerald-600" /> Synced
+                  </span>
+                )}
+                {status === "error" && (
+                  <span className="text-rose-700 inline-flex items-center gap-1">
+                    <AlertCircle size={12} className="text-rose-600" /> Sync failed
+                  </span>
+                )}
+                {status === "offline" && <span className="text-stone-400">Offline</span>}
+                {status === "idle" && <span className="text-stone-400">Synced</span>}
+              </span>
+            </div>
+          )}
         </header>
 
         {/* Primary action — the answer to "what should I do now?" */}

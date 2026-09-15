@@ -27,19 +27,24 @@ export function useQuickIdeas(userId?: string | null) {
     }
   }, [ideas, userId]);
 
-  // Newest first
+  // Newest first, excluding soft-deleted items
   const sortedIdeas = useMemo(() => {
-    return [...ideas].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return [...ideas]
+      .filter((i) => !i.deletedAt)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [ideas]);
 
   const addIdea = useCallback(
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return null;
+      const nowIso = new Date().toISOString();
       const idea: QuickIdea = {
         id: crypto.randomUUID(),
         text: trimmed,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        deletedAt: null,
         status: "open",
       };
       setIdeas((current) => [idea, ...current]);
@@ -50,19 +55,22 @@ export function useQuickIdeas(userId?: string | null) {
 
   const updateIdeaStatus = useCallback(
     (id: string, status: QuickIdeaStatus) => {
-      setIdeas((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
+      const nowIso = new Date().toISOString();
+      setIdeas((current) => current.map((item) => (item.id === id ? { ...item, status, updatedAt: nowIso } : item)));
     },
     [setIdeas],
   );
 
   const toggleComplete = useCallback(
     (id: string) => {
+      const nowIso = new Date().toISOString();
       setIdeas((current) =>
         current.map((item) => {
           if (item.id !== id) return item;
           return {
             ...item,
             status: item.status === "completed" ? "open" : "completed",
+            updatedAt: nowIso,
           };
         }),
       );
@@ -72,12 +80,14 @@ export function useQuickIdeas(userId?: string | null) {
 
   const toggleArchive = useCallback(
     (id: string) => {
+      const nowIso = new Date().toISOString();
       setIdeas((current) =>
         current.map((item) => {
           if (item.id !== id) return item;
           return {
             ...item,
             status: item.status === "archived" ? "open" : "archived",
+            updatedAt: nowIso,
           };
         }),
       );
@@ -87,7 +97,10 @@ export function useQuickIdeas(userId?: string | null) {
 
   const deleteIdea = useCallback(
     (id: string) => {
-      setIdeas((current) => current.filter((item) => item.id !== id));
+      const nowIso = new Date().toISOString();
+      setIdeas((current) =>
+        current.map((item) => (item.id === id ? { ...item, deletedAt: nowIso, updatedAt: nowIso } : item)),
+      );
     },
     [setIdeas],
   );

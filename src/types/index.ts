@@ -95,6 +95,7 @@ export interface ApplicationOverride {
 export interface TreeOverride {
   status?: TaskStatus;
   notes?: string | null;
+  updatedAt?: string;
 }
 
 export interface LocalState {
@@ -103,6 +104,7 @@ export interface LocalState {
   treeOverrides: Record<string, TreeOverride>;
   expandedTreeNodes: Record<string, boolean>;
   lastReferenceData?: ReferenceData;
+  updatedAt?: string;
 }
 
 export interface ReferenceData {
@@ -123,6 +125,8 @@ export interface Task {
   title: string;
   mode: Mode;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
   dueDate?: string | null;
   dueTime?: string | null;
   priority: TaskPriority;
@@ -139,6 +143,9 @@ export interface Meeting {
   location?: string | null;
   notes?: string | null;
   mode: Mode;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
 }
 
 export interface Routine {
@@ -148,6 +155,9 @@ export interface Routine {
   daysOfWeek: number[];
   startTime: string;
   enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
 }
 
 export interface WorkoutItem {
@@ -156,11 +166,15 @@ export interface WorkoutItem {
   startTime: string; // HH:MM
   durationMinutes: number;
   enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
 }
 
 export interface WorkoutSettings {
   enabled: boolean;
   startTime: string;
+  updatedAt?: string;
 }
 
 export interface ActiveWorkout {
@@ -175,6 +189,8 @@ export interface Goal {
   title: string;
   horizon: "week" | "month" | "term";
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
   done: boolean;
 }
 
@@ -188,6 +204,7 @@ export interface TrakkerOsState {
   workout: WorkoutSettings;
   workouts: WorkoutItem[];
   goals: Goal[];
+  updatedAt?: string;
 }
 
 // ===== Quick Ideas (Personal mode only) =====
@@ -198,6 +215,8 @@ export interface QuickIdea {
   id: string;
   text: string;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
   status: QuickIdeaStatus;
 }
 

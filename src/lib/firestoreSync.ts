@@ -5,6 +5,7 @@ import {
   setDoc,
   type Unsubscribe,
 } from "firebase/firestore";
+import { useCallback, useEffect, useState } from "react";
 import { db } from "./firebase";
 import type {
   Application,
@@ -48,28 +49,95 @@ export interface FirestorePhdData {
   updatedAt: string;
 }
 
-/** Merges arrays of items with stable IDs without duplicates. */
-export function mergeItemsById<T extends { id: string; updatedAt?: string; createdAt?: string }>(
-  local: T[],
-  remote: T[],
-): T[] {
-  const map = new Map<string, T>();
-  for (const item of remote || []) {
-    if (item && item.id) map.set(item.id, item);
+export type SyncStatus = "idle" | "syncing" | "synced" | "error" | "offline";
+
+let currentSyncStatus: SyncStatus = typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "idle";
+let lastSyncedAt: Date | null = null;
+const statusListeners = new Set<(status: SyncStatus, lastSync: Date | null) => void>();
+
+export function setSyncStatus(status: SyncStatus) {
+  currentSyncStatus = status;
+  if (status === "synced") {
+    lastSyncedAt = new Date();
   }
+  for (const listener of statusListeners) {
+    try {
+      listener(currentSyncStatus, lastSyncedAt);
+    } catch {
+      // ignore listener error
+    }
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("trakker:sync:status", {
+        detail: { status: currentSyncStatus, lastSyncedAt },
+      }),
+    );
+  }
+}
+
+export function getSyncStatus(): { status: SyncStatus; lastSyncedAt: Date | null } {
+  return { status: currentSyncStatus, lastSyncedAt };
+}
+
+export function subscribeSyncStatus(
+  callback: (status: SyncStatus, lastSync: Date | null) => void,
+): () => void {
+  statusListeners.add(callback);
+  callback(currentSyncStatus, lastSyncedAt);
+  return () => {
+    statusListeners.delete(callback);
+  };
+}
+
+/**
+ * Strips all `undefined` values recursively so Firestore setDoc never throws
+ * "Unsupported field value: undefined".
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  return JSON.parse(
+    JSON.stringify(data, (_key, value) => (value === undefined ? null : value)),
+  ) as T;
+}
+
+/**
+ * Merges arrays of items with stable IDs, handling soft-deletes (deletedAt)
+ * and timestamp conflict resolution deterministically.
+ */
+export function mergeItemsById<
+  T extends { id: string; updatedAt?: string; createdAt?: string; deletedAt?: string | null }
+>(local: T[], remote: T[]): T[] {
+  const map = new Map<string, T>();
+
+  function getTimestamp(item: T): string {
+    return item.updatedAt || item.deletedAt || item.createdAt || "";
+  }
+
+  for (const item of remote || []) {
+    if (item && item.id) {
+      map.set(item.id, item);
+    }
+  }
+
   for (const item of local || []) {
     if (!item || !item.id) continue;
     const existing = map.get(item.id);
     if (!existing) {
       map.set(item.id, item);
     } else {
-      const existingTime = existing.updatedAt || existing.createdAt || "";
-      const itemTime = item.updatedAt || item.createdAt || "";
-      if (itemTime >= existingTime) {
+      const existingTime = getTimestamp(existing);
+      const localTime = getTimestamp(item);
+
+      if (localTime >= existingTime) {
+        // Local is newer or equal
         map.set(item.id, { ...existing, ...item });
+      } else {
+        // Remote is newer
+        map.set(item.id, { ...item, ...existing });
       }
     }
   }
+
   return Array.from(map.values());
 }
 
@@ -105,6 +173,7 @@ export function mergeApplicationOverrides(
           taskNotes: { ...(remoteOverride.taskNotes || {}), ...(localOverride.taskNotes || {}) },
           taskEvidence: { ...(remoteOverride.taskEvidence || {}), ...(localOverride.taskEvidence || {}) },
           taskRequired: { ...(remoteOverride.taskRequired || {}), ...(localOverride.taskRequired || {}) },
+          updatedAt: localTime || remoteTime || new Date().toISOString(),
         };
       }
     }
@@ -116,6 +185,9 @@ export function mergeApplicationOverrides(
 let activeUnsubscribes: Unsubscribe[] = [];
 let currentSyncUid: string | null = null;
 let isApplyingRemoteChange = false;
+let lastRemoteOsUpdatedAt: string | null = null;
+let lastRemoteIdeasUpdatedAt: string | null = null;
+let lastRemotePhdUpdatedAt: string | null = null;
 
 function readLocalJson<T>(key: string): T | null {
   try {
@@ -130,26 +202,28 @@ function writeLocalJson<T>(key: string, value: T) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // quota exceeded or private mode
+    // storage quota or private mode
   }
 }
 
 /**
- * Starts background sync with Firestore for the authenticated user.
+ * Performs an immediate full bi-directional sync with Firestore.
+ * Pushes local changes, pulls remote changes, merges safely, and updates state.
  */
-export async function startFirestoreSync(uid: string): Promise<() => void> {
-  if (!db || currentSyncUid === uid) {
-    return () => {};
+export async function performFullSync(uid: string): Promise<boolean> {
+  if (!db) return false;
+
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    setSyncStatus("offline");
+    return false;
   }
 
-  stopFirestoreSync();
-  currentSyncUid = uid;
+  setSyncStatus("syncing");
+  const firestore = db;
+  const osDocRef = doc(firestore, "users", uid, "data", "os");
+  const ideasDocRef = doc(firestore, "users", uid, "data", "quickIdeas");
+  const phdDocRef = doc(firestore, "users", uid, "data", "phd");
 
-  const osDocRef = doc(db, "users", uid, "data", "os");
-  const ideasDocRef = doc(db, "users", uid, "data", "quickIdeas");
-  const phdDocRef = doc(db, "users", uid, "data", "phd");
-
-  // Step 1: Initial migration & merge with remote data
   try {
     const [osSnap, ideasSnap, phdSnap] = await Promise.all([
       getDoc(osDocRef),
@@ -157,7 +231,9 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
       getDoc(phdDocRef),
     ]);
 
-    // Merge OS Data
+    const nowIso = new Date().toISOString();
+
+    // 1. OS Data (tasks, meetings, routines, workouts, goals, mode)
     const localOs = readLocalJson<TrakkerOsState>(STORAGE_KEY_OS);
     const remoteOs = osSnap.exists() ? (osSnap.data() as FirestoreOsData) : null;
 
@@ -182,13 +258,17 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
         workout: remoteOs?.workout || localOs?.workout || { enabled: true, startTime: "17:00" },
         workouts: mergedWorkouts.length ? mergedWorkouts : (localOs?.workouts || []),
         goals: mergedGoals,
+        updatedAt: nowIso,
       };
 
+      isApplyingRemoteChange = true;
       writeLocalJson(STORAGE_KEY_OS, mergedOs);
       window.dispatchEvent(new CustomEvent("trakker:sync:os", { detail: mergedOs }));
+      setTimeout(() => {
+        isApplyingRemoteChange = false;
+      }, 600);
 
-      // Upload merged state to Firestore so cloud is up-to-date with local data
-      const firestoreOsPayload: FirestoreOsData = {
+      const osPayload = sanitizeForFirestore<FirestoreOsData>({
         mode: mergedOs.mode,
         tasks: mergedOs.tasks,
         meetings: mergedOs.meetings,
@@ -197,32 +277,41 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
         workout: mergedOs.workout,
         workouts: mergedOs.workouts,
         goals: mergedOs.goals,
-        updatedAt: new Date().toISOString(),
-      };
-      void setDoc(osDocRef, firestoreOsPayload, { merge: true });
+        updatedAt: nowIso,
+      });
+      await setDoc(osDocRef, osPayload, { merge: true });
+      lastRemoteOsUpdatedAt = nowIso;
     }
 
-    // Merge Quick Ideas Data
+    // 2. Quick Ideas Data
     const localIdeas = readLocalJson<QuickIdea[]>(STORAGE_KEY_IDEAS) || [];
     const remoteIdeas = ideasSnap.exists() ? (ideasSnap.data() as FirestoreIdeasData)?.ideas || [] : [];
+
     if (localIdeas.length || remoteIdeas.length) {
       const mergedIdeas = mergeItemsById(localIdeas, remoteIdeas);
+      isApplyingRemoteChange = true;
       writeLocalJson(STORAGE_KEY_IDEAS, mergedIdeas);
       window.dispatchEvent(new CustomEvent("trakker:sync:ideas", { detail: mergedIdeas }));
+      setTimeout(() => {
+        isApplyingRemoteChange = false;
+      }, 600);
 
-      const firestoreIdeasPayload: FirestoreIdeasData = {
+      const ideasPayload = sanitizeForFirestore<FirestoreIdeasData>({
         ideas: mergedIdeas,
-        updatedAt: new Date().toISOString(),
-      };
-      void setDoc(ideasDocRef, firestoreIdeasPayload, { merge: true });
+        updatedAt: nowIso,
+      });
+      await setDoc(ideasDocRef, ideasPayload, { merge: true });
+      lastRemoteIdeasUpdatedAt = nowIso;
     }
 
-    // Merge PhD localState Data (overrides, custom applications, treeOverrides)
+    // 3. PhD Data
     interface LocalStateRaw {
       applicationOverrides?: Record<string, ApplicationOverride>;
       customApplications?: Application[];
       treeOverrides?: Record<string, TreeOverride>;
       expandedTreeNodes?: Record<string, boolean>;
+      lastReferenceData?: unknown;
+      updatedAt?: string;
     }
     const localPhd = readLocalJson<LocalStateRaw>(STORAGE_KEY_PHD);
     const remotePhd = phdSnap.exists() ? (phdSnap.data() as FirestorePhdData) : null;
@@ -247,106 +336,172 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
         customApplications: mergedCustomApps,
         treeOverrides: mergedTreeOverrides,
         expandedTreeNodes: localPhd?.expandedTreeNodes || { "1": true },
+        updatedAt: nowIso,
       };
 
+      isApplyingRemoteChange = true;
       writeLocalJson(STORAGE_KEY_PHD, mergedPhdState);
       window.dispatchEvent(new CustomEvent("trakker:sync:phd", { detail: mergedPhdState }));
+      setTimeout(() => {
+        isApplyingRemoteChange = false;
+      }, 600);
 
-      const firestorePhdPayload: FirestorePhdData = {
+      const phdPayload = sanitizeForFirestore<FirestorePhdData>({
         applicationOverrides: mergedAppOverrides,
         customApplications: mergedCustomApps,
         treeOverrides: mergedTreeOverrides,
-        updatedAt: new Date().toISOString(),
-      };
-      void setDoc(phdDocRef, firestorePhdPayload, { merge: true });
+        updatedAt: nowIso,
+      });
+      await setDoc(phdDocRef, phdPayload, { merge: true });
+      lastRemotePhdUpdatedAt = nowIso;
     }
+
+    setSyncStatus("synced");
+    return true;
   } catch (err) {
-    console.warn("Initial Firestore sync failed (offline or network error):", err);
+    console.error("Full Firestore sync failed:", err);
+    setSyncStatus("error");
+    return false;
+  }
+}
+
+/**
+ * Starts background sync with Firestore for the authenticated user.
+ */
+export async function startFirestoreSync(uid: string): Promise<() => void> {
+  if (!db || currentSyncUid === uid) {
+    return () => {};
   }
 
-  // Step 2: Real-time listener for remote changes (Cross-device sync)
-  const unsubOs = onSnapshot(osDocRef, (snap) => {
-    if (!snap.exists() || isApplyingRemoteChange) return;
-    const remote = snap.data() as FirestoreOsData;
-    const local = readLocalJson<TrakkerOsState>(STORAGE_KEY_OS);
+  stopFirestoreSync();
+  currentSyncUid = uid;
 
-    const mergedTasks = mergeItemsById(local?.tasks || [], remote.tasks || []);
-    const mergedMeetings = mergeItemsById(local?.meetings || [], remote.meetings || []);
-    const mergedRoutines = mergeItemsById(local?.routines || [], remote.routines || []);
-    const mergedWorkouts = mergeItemsById(local?.workouts || [], remote.workouts || []);
-    const mergedGoals = mergeItemsById(local?.goals || [], remote.goals || []);
-    const mergedCompletions = mergeSimpleRecords(local?.routineCompletions, remote.routineCompletions);
+  const firestore = db;
+  const osDocRef = doc(firestore, "users", uid, "data", "os");
+  const ideasDocRef = doc(firestore, "users", uid, "data", "quickIdeas");
+  const phdDocRef = doc(firestore, "users", uid, "data", "phd");
 
-    const nextState: TrakkerOsState = {
-      version: 2,
-      mode: remote.mode || local?.mode || "work",
-      tasks: mergedTasks,
-      meetings: mergedMeetings,
-      routines: mergedRoutines,
-      routineCompletions: mergedCompletions,
-      workout: remote.workout || local?.workout || { enabled: true, startTime: "17:00" },
-      workouts: mergedWorkouts.length ? mergedWorkouts : (local?.workouts || []),
-      goals: mergedGoals,
-    };
+  // Step 1: Initial full bi-directional sync & migration
+  await performFullSync(uid);
 
-    isApplyingRemoteChange = true;
-    writeLocalJson(STORAGE_KEY_OS, nextState);
-    window.dispatchEvent(new CustomEvent("trakker:sync:os", { detail: nextState }));
-    setTimeout(() => {
-      isApplyingRemoteChange = false;
-    }, 100);
-  });
+  // Step 2: Real-time listeners for remote changes from other devices
+  const unsubOs = onSnapshot(
+    osDocRef,
+    (snap) => {
+      if (!snap.exists() || isApplyingRemoteChange) return;
+      const remote = snap.data() as FirestoreOsData;
+      if (remote.updatedAt && remote.updatedAt === lastRemoteOsUpdatedAt) return;
 
-  const unsubIdeas = onSnapshot(ideasDocRef, (snap) => {
-    if (!snap.exists() || isApplyingRemoteChange) return;
-    const remote = snap.data() as FirestoreIdeasData;
-    const local = readLocalJson<QuickIdea[]>(STORAGE_KEY_IDEAS) || [];
+      lastRemoteOsUpdatedAt = remote.updatedAt;
+      const local = readLocalJson<TrakkerOsState>(STORAGE_KEY_OS);
 
-    const mergedIdeas = mergeItemsById(local, remote.ideas || []);
-    isApplyingRemoteChange = true;
-    writeLocalJson(STORAGE_KEY_IDEAS, mergedIdeas);
-    window.dispatchEvent(new CustomEvent("trakker:sync:ideas", { detail: mergedIdeas }));
-    setTimeout(() => {
-      isApplyingRemoteChange = false;
-    }, 100);
-  });
+      const mergedTasks = mergeItemsById(local?.tasks || [], remote.tasks || []);
+      const mergedMeetings = mergeItemsById(local?.meetings || [], remote.meetings || []);
+      const mergedRoutines = mergeItemsById(local?.routines || [], remote.routines || []);
+      const mergedWorkouts = mergeItemsById(local?.workouts || [], remote.workouts || []);
+      const mergedGoals = mergeItemsById(local?.goals || [], remote.goals || []);
+      const mergedCompletions = mergeSimpleRecords(local?.routineCompletions, remote.routineCompletions);
 
-  const unsubPhd = onSnapshot(phdDocRef, (snap) => {
-    if (!snap.exists() || isApplyingRemoteChange) return;
-    const remote = snap.data() as FirestorePhdData;
-    interface LocalStateRaw {
-      applicationOverrides?: Record<string, ApplicationOverride>;
-      customApplications?: Application[];
-      treeOverrides?: Record<string, TreeOverride>;
-      expandedTreeNodes?: Record<string, boolean>;
-    }
-    const local = readLocalJson<LocalStateRaw>(STORAGE_KEY_PHD);
+      const nextState: TrakkerOsState = {
+        version: 2,
+        mode: remote.mode || local?.mode || "work",
+        tasks: mergedTasks,
+        meetings: mergedMeetings,
+        routines: mergedRoutines,
+        routineCompletions: mergedCompletions,
+        workout: remote.workout || local?.workout || { enabled: true, startTime: "17:00" },
+        workouts: mergedWorkouts.length ? mergedWorkouts : (local?.workouts || []),
+        goals: mergedGoals,
+        updatedAt: remote.updatedAt,
+      };
 
-    const mergedAppOverrides = mergeApplicationOverrides(
-      local?.applicationOverrides,
-      remote.applicationOverrides,
-    );
-    const mergedCustomApps = mergeItemsById(
-      local?.customApplications || [],
-      remote.customApplications || [],
-    );
-    const mergedTreeOverrides = mergeSimpleRecords(local?.treeOverrides, remote.treeOverrides);
+      isApplyingRemoteChange = true;
+      writeLocalJson(STORAGE_KEY_OS, nextState);
+      window.dispatchEvent(new CustomEvent("trakker:sync:os", { detail: nextState }));
+      setSyncStatus("synced");
+      setTimeout(() => {
+        isApplyingRemoteChange = false;
+      }, 600);
+    },
+    (err) => {
+      console.warn("Firestore OS listener error (offline or permission):", err);
+      setSyncStatus("error");
+    },
+  );
 
-    const nextState = {
-      ...(local || {}),
-      applicationOverrides: mergedAppOverrides,
-      customApplications: mergedCustomApps,
-      treeOverrides: mergedTreeOverrides,
-      expandedTreeNodes: local?.expandedTreeNodes || { "1": true },
-    };
+  const unsubIdeas = onSnapshot(
+    ideasDocRef,
+    (snap) => {
+      if (!snap.exists() || isApplyingRemoteChange) return;
+      const remote = snap.data() as FirestoreIdeasData;
+      if (remote.updatedAt && remote.updatedAt === lastRemoteIdeasUpdatedAt) return;
 
-    isApplyingRemoteChange = true;
-    writeLocalJson(STORAGE_KEY_PHD, nextState);
-    window.dispatchEvent(new CustomEvent("trakker:sync:phd", { detail: nextState }));
-    setTimeout(() => {
-      isApplyingRemoteChange = false;
-    }, 100);
-  });
+      lastRemoteIdeasUpdatedAt = remote.updatedAt;
+      const local = readLocalJson<QuickIdea[]>(STORAGE_KEY_IDEAS) || [];
+
+      const mergedIdeas = mergeItemsById(local, remote.ideas || []);
+      isApplyingRemoteChange = true;
+      writeLocalJson(STORAGE_KEY_IDEAS, mergedIdeas);
+      window.dispatchEvent(new CustomEvent("trakker:sync:ideas", { detail: mergedIdeas }));
+      setSyncStatus("synced");
+      setTimeout(() => {
+        isApplyingRemoteChange = false;
+      }, 600);
+    },
+    (err) => {
+      console.warn("Firestore ideas listener error:", err);
+    },
+  );
+
+  const unsubPhd = onSnapshot(
+    phdDocRef,
+    (snap) => {
+      if (!snap.exists() || isApplyingRemoteChange) return;
+      const remote = snap.data() as FirestorePhdData;
+      if (remote.updatedAt && remote.updatedAt === lastRemotePhdUpdatedAt) return;
+
+      lastRemotePhdUpdatedAt = remote.updatedAt;
+      interface LocalStateRaw {
+        applicationOverrides?: Record<string, ApplicationOverride>;
+        customApplications?: Application[];
+        treeOverrides?: Record<string, TreeOverride>;
+        expandedTreeNodes?: Record<string, boolean>;
+        lastReferenceData?: unknown;
+        updatedAt?: string;
+      }
+      const local = readLocalJson<LocalStateRaw>(STORAGE_KEY_PHD);
+
+      const mergedAppOverrides = mergeApplicationOverrides(
+        local?.applicationOverrides,
+        remote.applicationOverrides,
+      );
+      const mergedCustomApps = mergeItemsById(
+        local?.customApplications || [],
+        remote.customApplications || [],
+      );
+      const mergedTreeOverrides = mergeSimpleRecords(local?.treeOverrides, remote.treeOverrides);
+
+      const nextState = {
+        ...(local || {}),
+        applicationOverrides: mergedAppOverrides,
+        customApplications: mergedCustomApps,
+        treeOverrides: mergedTreeOverrides,
+        expandedTreeNodes: local?.expandedTreeNodes || { "1": true },
+        updatedAt: remote.updatedAt,
+      };
+
+      isApplyingRemoteChange = true;
+      writeLocalJson(STORAGE_KEY_PHD, nextState);
+      window.dispatchEvent(new CustomEvent("trakker:sync:phd", { detail: nextState }));
+      setSyncStatus("synced");
+      setTimeout(() => {
+        isApplyingRemoteChange = false;
+      }, 600);
+    },
+    (err) => {
+      console.warn("Firestore PhD listener error:", err);
+    },
+  );
 
   activeUnsubscribes = [unsubOs, unsubIdeas, unsubPhd];
 
@@ -361,7 +516,7 @@ export function stopFirestoreSync() {
     try {
       unsub();
     } catch {
-      // ignore unsubscribe errors
+      // ignore
     }
   }
   activeUnsubscribes = [];
@@ -379,8 +534,10 @@ export function syncOsToFirestore(uid: string, state: TrakkerOsState) {
   if (!firestore || isApplyingRemoteChange) return;
 
   if (pushOsTimer) clearTimeout(pushOsTimer);
-  pushOsTimer = setTimeout(() => {
-    const payload: FirestoreOsData = {
+  pushOsTimer = setTimeout(async () => {
+    setSyncStatus("syncing");
+    const nowIso = new Date().toISOString();
+    const payload = sanitizeForFirestore<FirestoreOsData>({
       mode: state.mode,
       tasks: state.tasks,
       meetings: state.meetings,
@@ -389,13 +546,18 @@ export function syncOsToFirestore(uid: string, state: TrakkerOsState) {
       workout: state.workout,
       workouts: state.workouts,
       goals: state.goals,
-      updatedAt: new Date().toISOString(),
-    };
-    const osDocRef = doc(firestore, "users", uid, "data", "os");
-    void setDoc(osDocRef, payload, { merge: true }).catch((err) => {
-      console.warn("Failed to push OS state to Firestore (offline):", err);
+      updatedAt: state.updatedAt || nowIso,
     });
-  }, 400);
+    const osDocRef = doc(firestore, "users", uid, "data", "os");
+    try {
+      await setDoc(osDocRef, payload, { merge: true });
+      lastRemoteOsUpdatedAt = payload.updatedAt;
+      setSyncStatus("synced");
+    } catch (err) {
+      console.warn("Failed to push OS state to Firestore (offline):", err);
+      setSyncStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error");
+    }
+  }, 300);
 }
 
 /** Pushes updated Quick Ideas to Firestore in background. */
@@ -404,16 +566,23 @@ export function syncIdeasToFirestore(uid: string, ideas: QuickIdea[]) {
   if (!firestore || isApplyingRemoteChange) return;
 
   if (pushIdeasTimer) clearTimeout(pushIdeasTimer);
-  pushIdeasTimer = setTimeout(() => {
-    const payload: FirestoreIdeasData = {
+  pushIdeasTimer = setTimeout(async () => {
+    setSyncStatus("syncing");
+    const nowIso = new Date().toISOString();
+    const payload = sanitizeForFirestore<FirestoreIdeasData>({
       ideas,
-      updatedAt: new Date().toISOString(),
-    };
-    const ideasDocRef = doc(firestore, "users", uid, "data", "quickIdeas");
-    void setDoc(ideasDocRef, payload, { merge: true }).catch((err) => {
-      console.warn("Failed to push Quick Ideas to Firestore (offline):", err);
+      updatedAt: nowIso,
     });
-  }, 400);
+    const ideasDocRef = doc(firestore, "users", uid, "data", "quickIdeas");
+    try {
+      await setDoc(ideasDocRef, payload, { merge: true });
+      lastRemoteIdeasUpdatedAt = payload.updatedAt;
+      setSyncStatus("synced");
+    } catch (err) {
+      console.warn("Failed to push Quick Ideas to Firestore (offline):", err);
+      setSyncStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error");
+    }
+  }, 300);
 }
 
 /** Pushes updated PhD localState to Firestore in background. */
@@ -423,22 +592,78 @@ export function syncPhdToFirestore(
     applicationOverrides?: Record<string, ApplicationOverride>;
     customApplications?: Application[];
     treeOverrides?: Record<string, TreeOverride>;
+    updatedAt?: string;
   },
 ) {
   const firestore = db;
   if (!firestore || isApplyingRemoteChange) return;
 
   if (pushPhdTimer) clearTimeout(pushPhdTimer);
-  pushPhdTimer = setTimeout(() => {
-    const payload: FirestorePhdData = {
+  pushPhdTimer = setTimeout(async () => {
+    setSyncStatus("syncing");
+    const nowIso = new Date().toISOString();
+    const payload = sanitizeForFirestore<FirestorePhdData>({
       applicationOverrides: localState.applicationOverrides || {},
       customApplications: localState.customApplications || [],
       treeOverrides: localState.treeOverrides || {},
-      updatedAt: new Date().toISOString(),
-    };
-    const phdDocRef = doc(firestore, "users", uid, "data", "phd");
-    void setDoc(phdDocRef, payload, { merge: true }).catch((err) => {
-      console.warn("Failed to push PhD state to Firestore (offline):", err);
+      updatedAt: localState.updatedAt || nowIso,
     });
-  }, 400);
+    const phdDocRef = doc(firestore, "users", uid, "data", "phd");
+    try {
+      await setDoc(phdDocRef, payload, { merge: true });
+      lastRemotePhdUpdatedAt = payload.updatedAt;
+      setSyncStatus("synced");
+    } catch (err) {
+      console.warn("Failed to push PhD state to Firestore (offline):", err);
+      setSyncStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error");
+    }
+  }, 300);
+}
+
+/**
+ * Hook for consuming sync status and triggering "Sync Now" manually.
+ */
+export function useSyncStatus(uid?: string | null) {
+  const [status, setStatus] = useState<SyncStatus>(getSyncStatus().status);
+  const [lastSync, setLastSync] = useState<Date | null>(getSyncStatus().lastSyncedAt);
+
+  useEffect(() => {
+    const unsub = subscribeSyncStatus((s, date) => {
+      setStatus(s);
+      setLastSync(date);
+    });
+
+    function handleOnline() {
+      if (uid) {
+        void performFullSync(uid);
+      } else {
+        setSyncStatus("idle");
+      }
+    }
+
+    function handleOffline() {
+      setSyncStatus("offline");
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      unsub();
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [uid]);
+
+  const syncNow = useCallback(async () => {
+    if (!uid) return false;
+    return performFullSync(uid);
+  }, [uid]);
+
+  return {
+    status,
+    lastSyncedAt: lastSync,
+    isSyncing: status === "syncing",
+    syncNow,
+  };
 }

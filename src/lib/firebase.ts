@@ -45,12 +45,13 @@ if (isFirebaseConfigured) {
     // Ensure auth state persists across browser sessions & PWA standalone sessions
     void setPersistence(auth, browserLocalPersistence);
 
-    // Initialize Firestore with persistent multi-tab IndexedDB cache
+    // Initialize Firestore with persistent multi-tab IndexedDB cache and ignoreUndefinedProperties
     try {
       db = initializeFirestore(app, {
         localCache: persistentLocalCache({
           tabManager: persistentMultipleTabManager(),
         }),
+        ignoreUndefinedProperties: true,
       });
     } catch {
       db = getFirestore(app);

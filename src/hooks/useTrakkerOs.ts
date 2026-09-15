@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Goal, Meeting, Mode, Routine, Task, TrakkerOsState, WorkoutItem, WorkoutSettings } from "../types";
 
 const STORAGE_KEY = "trakker:os:v2";
@@ -31,6 +31,9 @@ function migrate(raw: unknown): TrakkerOsState {
         startTime: w.startTime || "17:00",
         durationMinutes: typeof w.durationMinutes === "number" ? w.durationMinutes : 45,
         enabled: typeof w.enabled === "boolean" ? w.enabled : true,
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt,
+        deletedAt: w.deletedAt ?? null,
       }))
     : [
         {
@@ -42,10 +45,11 @@ function migrate(raw: unknown): TrakkerOsState {
         },
       ];
 
-  const primaryWorkout = workouts.find((w) => w.enabled) ?? workouts[0];
+  const primaryWorkout = workouts.find((w) => w.enabled && !w.deletedAt) ?? workouts.find((w) => !w.deletedAt) ?? workouts[0];
   const workoutSetting: WorkoutSettings = {
     enabled: primaryWorkout ? primaryWorkout.enabled : (stored.workout?.enabled ?? true),
     startTime: primaryWorkout ? primaryWorkout.startTime : (stored.workout?.startTime ?? "17:00"),
+    updatedAt: stored.workout?.updatedAt,
   };
 
   return {
@@ -58,6 +62,7 @@ function migrate(raw: unknown): TrakkerOsState {
     workout: workoutSetting,
     workouts,
     goals: Array.isArray(stored.goals) ? stored.goals : [],
+    updatedAt: stored.updatedAt,
   };
 }
 
@@ -117,33 +122,59 @@ export function useTrakkerOs(userId?: string | null) {
     }
   }, [state, userId]);
 
-  const setMode = useCallback((mode: Mode) => setState((s) => ({ ...s, mode })), []);
+  const setMode = useCallback((mode: Mode) => {
+    const nowIso = new Date().toISOString();
+    setState((s) => ({ ...s, mode, updatedAt: nowIso }));
+  }, []);
 
   const addTask = useCallback((input: Pick<Task, "title" | "mode"> & Partial<Task>) => {
+    const nowIso = new Date().toISOString();
     const task: Task = {
       id: newId(),
       title: input.title,
       mode: input.mode,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      deletedAt: null,
       dueDate: input.dueDate ?? null,
       dueTime: input.dueTime ?? null,
       priority: input.priority ?? "medium",
       completed: false,
       notes: input.notes ?? null,
     };
-    setState((s) => ({ ...s, tasks: [...s.tasks, task] }));
+    setState((s) => ({ ...s, updatedAt: nowIso, tasks: [...s.tasks, task] }));
     return task;
   }, []);
 
   const updateTask = useCallback((id: string, patch: Partial<Task>) => {
-    setState((s) => ({ ...s, tasks: s.tasks.map((task) => (task.id === id ? { ...task, ...patch } : task)) }));
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      tasks: s.tasks.map((task) => (task.id === id ? { ...task, ...patch, updatedAt: nowIso } : task)),
+    }));
+  }, []);
+
+  const toggleTask = useCallback((id: string) => {
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      tasks: s.tasks.map((task) => (task.id === id ? { ...task, completed: !task.completed, updatedAt: nowIso } : task)),
+    }));
   }, []);
 
   const deleteTask = useCallback((id: string) => {
-    setState((s) => ({ ...s, tasks: s.tasks.filter((task) => task.id !== id) }));
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      tasks: s.tasks.map((task) => (task.id === id ? { ...task, deletedAt: nowIso, updatedAt: nowIso } : task)),
+    }));
   }, []);
 
   const addMeeting = useCallback((input: Pick<Meeting, "title" | "date" | "startTime" | "endTime" | "mode"> & Partial<Meeting>) => {
+    const nowIso = new Date().toISOString();
     const meeting: Meeting = {
       id: newId(),
       title: input.title,
@@ -153,20 +184,34 @@ export function useTrakkerOs(userId?: string | null) {
       location: input.location ?? null,
       notes: input.notes ?? null,
       mode: input.mode,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      deletedAt: null,
     };
-    setState((s) => ({ ...s, meetings: [...s.meetings, meeting] }));
+    setState((s) => ({ ...s, updatedAt: nowIso, meetings: [...s.meetings, meeting] }));
     return meeting;
   }, []);
 
   const updateMeeting = useCallback((id: string, patch: Partial<Meeting>) => {
-    setState((s) => ({ ...s, meetings: s.meetings.map((meeting) => (meeting.id === id ? { ...meeting, ...patch } : meeting)) }));
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      meetings: s.meetings.map((meeting) => (meeting.id === id ? { ...meeting, ...patch, updatedAt: nowIso } : meeting)),
+    }));
   }, []);
 
   const deleteMeeting = useCallback((id: string) => {
-    setState((s) => ({ ...s, meetings: s.meetings.filter((meeting) => meeting.id !== id) }));
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      meetings: s.meetings.map((meeting) => (meeting.id === id ? { ...meeting, deletedAt: nowIso, updatedAt: nowIso } : meeting)),
+    }));
   }, []);
 
   const addRoutine = useCallback((input: Pick<Routine, "title" | "mode" | "daysOfWeek" | "startTime"> & Partial<Routine>) => {
+    const nowIso = new Date().toISOString();
     const routine: Routine = {
       id: newId(),
       title: input.title,
@@ -174,46 +219,65 @@ export function useTrakkerOs(userId?: string | null) {
       daysOfWeek: input.daysOfWeek,
       startTime: input.startTime,
       enabled: input.enabled ?? true,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      deletedAt: null,
     };
-    setState((s) => ({ ...s, routines: [...s.routines, routine] }));
+    setState((s) => ({ ...s, updatedAt: nowIso, routines: [...s.routines, routine] }));
     return routine;
   }, []);
 
   const updateRoutine = useCallback((id: string, patch: Partial<Routine>) => {
-    setState((s) => ({ ...s, routines: s.routines.map((routine) => (routine.id === id ? { ...routine, ...patch } : routine)) }));
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      routines: s.routines.map((routine) => (routine.id === id ? { ...routine, ...patch, updatedAt: nowIso } : routine)),
+    }));
   }, []);
 
   const deleteRoutine = useCallback((id: string) => {
-    setState((s) => ({ ...s, routines: s.routines.filter((routine) => routine.id !== id) }));
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      routines: s.routines.map((routine) => (routine.id === id ? { ...routine, deletedAt: nowIso, updatedAt: nowIso } : routine)),
+    }));
   }, []);
 
   /** key is `${routineId}:${YYYY-MM-DD}` */
   const toggleRoutineDone = useCallback((routineId: string, day: string) => {
     const key = `${routineId}:${day}`;
+    const nowIso = new Date().toISOString();
     setState((s) => {
       const next = { ...s.routineCompletions };
       if (next[key]) delete next[key];
-      else next[key] = new Date().toISOString();
-      return { ...s, routineCompletions: next };
+      else next[key] = nowIso;
+      return { ...s, updatedAt: nowIso, routineCompletions: next };
     });
   }, []);
 
   const addWorkout = useCallback(
     (input: { title: string; startTime: string; durationMinutes?: number; enabled?: boolean }) => {
+      const nowIso = new Date().toISOString();
       const workout: WorkoutItem = {
         id: newId(),
         title: input.title.trim() || "Workout",
         startTime: input.startTime,
         durationMinutes: input.durationMinutes ?? 45,
         enabled: input.enabled ?? true,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        deletedAt: null,
       };
       setState((s) => {
         const nextWorkouts = [...s.workouts, workout];
-        const active = nextWorkouts.find((w) => w.enabled) ?? nextWorkouts[0];
+        const active = nextWorkouts.find((w) => w.enabled && !w.deletedAt) ?? nextWorkouts.find((w) => !w.deletedAt) ?? nextWorkouts[0];
         return {
           ...s,
+          updatedAt: nowIso,
           workouts: nextWorkouts,
-          workout: active ? { enabled: active.enabled, startTime: active.startTime } : s.workout,
+          workout: active ? { enabled: active.enabled, startTime: active.startTime, updatedAt: nowIso } : s.workout,
         };
       });
       return workout;
@@ -222,62 +286,98 @@ export function useTrakkerOs(userId?: string | null) {
   );
 
   const updateWorkout = useCallback((id: string, patch: Partial<WorkoutItem>) => {
+    const nowIso = new Date().toISOString();
     setState((s) => {
-      const nextWorkouts = s.workouts.map((w) => (w.id === id ? { ...w, ...patch } : w));
-      const active = nextWorkouts.find((w) => w.enabled) ?? nextWorkouts[0];
+      const nextWorkouts = s.workouts.map((w) => (w.id === id ? { ...w, ...patch, updatedAt: nowIso } : w));
+      const active = nextWorkouts.find((w) => w.enabled && !w.deletedAt) ?? nextWorkouts.find((w) => !w.deletedAt) ?? nextWorkouts[0];
       return {
         ...s,
+        updatedAt: nowIso,
         workouts: nextWorkouts,
-        workout: active ? { enabled: active.enabled, startTime: active.startTime } : s.workout,
+        workout: active ? { enabled: active.enabled, startTime: active.startTime, updatedAt: nowIso } : s.workout,
       };
     });
   }, []);
 
   const deleteWorkout = useCallback((id: string) => {
+    const nowIso = new Date().toISOString();
     setState((s) => {
-      const nextWorkouts = s.workouts.filter((w) => w.id !== id);
-      const active = nextWorkouts.find((w) => w.enabled) ?? nextWorkouts[0];
+      const nextWorkouts = s.workouts.map((w) => (w.id === id ? { ...w, deletedAt: nowIso, updatedAt: nowIso } : w));
+      const active = nextWorkouts.find((w) => w.enabled && !w.deletedAt) ?? nextWorkouts.find((w) => !w.deletedAt);
       return {
         ...s,
+        updatedAt: nowIso,
         workouts: nextWorkouts,
-        workout: active ? { enabled: active.enabled, startTime: active.startTime } : { enabled: false, startTime: "17:00" },
+        workout: active ? { enabled: active.enabled, startTime: active.startTime, updatedAt: nowIso } : { enabled: false, startTime: "17:00", updatedAt: nowIso },
       };
     });
   }, []);
 
   const setWorkout = useCallback((patch: Partial<WorkoutSettings>) => {
+    const nowIso = new Date().toISOString();
     setState((s) => {
-      const nextWorkout = { ...s.workout, ...patch };
-      const nextWorkouts = s.workouts.map((w, idx) => (idx === 0 ? { ...w, ...patch } : w));
+      const nextWorkout = { ...s.workout, ...patch, updatedAt: nowIso };
+      const nextWorkouts = s.workouts.map((w, idx) => (idx === 0 ? { ...w, ...patch, updatedAt: nowIso } : w));
       return {
         ...s,
+        updatedAt: nowIso,
         workout: nextWorkout,
         workouts: nextWorkouts.length
           ? nextWorkouts
-          : [{ id: "default-workout", title: "Daily Workout", startTime: nextWorkout.startTime, durationMinutes: 45, enabled: nextWorkout.enabled }],
+          : [{ id: "default-workout", title: "Daily Workout", startTime: nextWorkout.startTime, durationMinutes: 45, enabled: nextWorkout.enabled, createdAt: nowIso, updatedAt: nowIso, deletedAt: null }],
       };
     });
   }, []);
 
   const addGoal = useCallback((title: string, horizon: Goal["horizon"]) => {
-    const goal: Goal = { id: newId(), title, horizon, createdAt: new Date().toISOString(), done: false };
-    setState((s) => ({ ...s, goals: [...s.goals, goal] }));
+    const nowIso = new Date().toISOString();
+    const goal: Goal = { id: newId(), title, horizon, createdAt: nowIso, updatedAt: nowIso, deletedAt: null, done: false };
+    setState((s) => ({ ...s, updatedAt: nowIso, goals: [...s.goals, goal] }));
     return goal;
   }, []);
 
   const updateGoal = useCallback((id: string, patch: Partial<Goal>) => {
-    setState((s) => ({ ...s, goals: s.goals.map((goal) => (goal.id === id ? { ...goal, ...patch } : goal)) }));
+    const nowIso = new Date().toISOString();
+    setState((s) => ({ ...s, updatedAt: nowIso, goals: s.goals.map((goal) => (goal.id === id ? { ...goal, ...patch, updatedAt: nowIso } : goal)) }));
+  }, []);
+
+  const toggleGoal = useCallback((id: string) => {
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      goals: s.goals.map((goal) => (goal.id === id ? { ...goal, done: !goal.done, updatedAt: nowIso } : goal)),
+    }));
   }, []);
 
   const deleteGoal = useCallback((id: string) => {
-    setState((s) => ({ ...s, goals: s.goals.filter((goal) => goal.id !== id) }));
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      goals: s.goals.map((goal) => (goal.id === id ? { ...goal, deletedAt: nowIso, updatedAt: nowIso } : goal)),
+    }));
   }, []);
 
+  // Filter out soft-deleted items for UI rendering
+  const visibleState = useMemo<TrakkerOsState>(() => {
+    return {
+      ...state,
+      tasks: state.tasks.filter((t) => !t.deletedAt),
+      meetings: state.meetings.filter((m) => !m.deletedAt),
+      routines: state.routines.filter((r) => !r.deletedAt),
+      workouts: state.workouts.filter((w) => !w.deletedAt),
+      goals: state.goals.filter((g) => !g.deletedAt),
+    };
+  }, [state]);
+
   return {
-    os: state,
+    os: visibleState,
+    rawOs: state,
     setMode,
     addTask,
     updateTask,
+    toggleTask,
     deleteTask,
     addMeeting,
     updateMeeting,
@@ -292,6 +392,7 @@ export function useTrakkerOs(userId?: string | null) {
     deleteWorkout,
     addGoal,
     updateGoal,
+    toggleGoal,
     deleteGoal,
   };
 }
