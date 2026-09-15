@@ -25,6 +25,29 @@ body {
   margin: 0;
 }
 
+/* Native controls (checkboxes, date/time pickers, selects) pick up the active
+   mode color instead of the browser-default blue. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="date"],
+input[type="time"],
+select {
+  accent-color: var(--primary);
+}
+
+/* Bottom safe area: clears the fixed bottom nav on notch/home-bar devices.
+   Height + safe-area inset + breathing room; desktop (lg+) resets to 0 since
+   the bottom nav is hidden there. */
+.safe-bottom {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
+@media (min-width: 1024px) {
+  .safe-bottom {
+    padding-bottom: 0;
+  }
+}
+
 button,
 input,
 select,
@@ -87,7 +110,19 @@ textarea {
   }
 
   .app-root button:active:not(:disabled) {
-    transform: scale(0.98);
+    transform: scale(0.97);
+    transition-duration: 80ms;
+  }
+
+  /* Task completion: the check pops in softly; title fades as it strikes. */
+  .check-pop {
+    animation: check-in 180ms ease;
+  }
+
+  .task-title {
+    transition-property: color, opacity;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
   }
 
   .page-enter {
@@ -99,6 +134,33 @@ textarea {
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Lightweight "Deleted · Undo" toast. */
+.toast-in {
+  animation: toast-in 160ms ease;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
   to {
     opacity: 1;

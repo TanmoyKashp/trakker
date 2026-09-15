@@ -23,7 +23,6 @@ export function GoalsPage({ osState, os }: { osState: TrakkerOsState; os: Trakke
   return (
     <section className="page-enter mx-auto max-w-3xl px-4 py-5 sm:px-6">
       <header className="mb-4">
-        <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
         <h1 className="text-2xl font-semibold">Goals</h1>
         <p className="mt-1 text-sm text-stone-500">A small set of outcomes worth moving toward. Keep it short.</p>
       </header>

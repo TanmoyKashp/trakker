@@ -11,8 +11,15 @@ import {
   User,
   Users,
 } from "lucide-react";
+import { useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import type { Mode } from "../../types";
+
+/** iOS/PWA status bar matches the active mode. */
+const MODE_THEME_COLOR: Record<Mode, string> = {
+  work: "#6B1F2A",
+  personal: "#7A8450",
+};
 
 const sharedNav = [
   { to: "/applications", label: "Applications", icon: ClipboardList },
@@ -94,6 +101,11 @@ export function AppShell({
 }) {
   const modeNav = mode === "work" ? workNav : personalNav;
 
+  // Keep the browser/OS status bar in sync with the active mode.
+  useEffect(() => {
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", MODE_THEME_COLOR[mode]);
+  }, [mode]);
+
   return (
     <div className="app-root min-h-screen bg-[#F7F3ED] text-[#242424]" data-theme={mode}>
       {/* Mobile top bar: brand + the single mode switch */}
@@ -126,14 +138,17 @@ export function AppShell({
         </nav>
       </aside>
 
-      <main className="pb-24 lg:ml-64 lg:pb-0">
+      <main className="safe-bottom lg:ml-64">
         {(offline || error) && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">Offline · Showing saved data</div>
         )}
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 grid grid-cols-4 border-t border-stone-300/70 bg-[#FFFCF7] lg:hidden">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-stone-300/70 bg-[#FFFCF7] lg:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
         <NavLink
           end
           to="/"

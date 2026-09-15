@@ -12,7 +12,6 @@ export function StatusPage({ applications }: { applications: Application[] }) {
   return (
     <section className="page-enter mx-auto max-w-7xl px-4 py-5 sm:px-6">
       <header className="mb-4">
-        <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
         <h1 className="text-2xl font-semibold">Status</h1>
       </header>
       <div className="mb-5 grid gap-2 md:grid-cols-4 xl:grid-cols-8">

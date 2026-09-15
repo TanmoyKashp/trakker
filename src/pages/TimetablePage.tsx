@@ -11,7 +11,6 @@ export function TimetablePage() {
   return (
     <section className="page-enter mx-auto max-w-4xl px-4 py-5 sm:px-6">
       <header className="mb-4">
-        <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
         <h1 className="text-2xl font-semibold">Work Timetable</h1>
         <p className="mt-1 text-sm text-stone-500">
           Office hours Mon–Fri · {formatTime12(OFFICE_HOURS.start)}–{formatTime12(OFFICE_HOURS.end)}

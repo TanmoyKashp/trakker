@@ -25,7 +25,6 @@ export function MeetingsPage({ osState, os }: { osState: TrakkerOsState; os: Tra
   return (
     <section className="page-enter mx-auto max-w-3xl px-4 py-5 sm:px-6">
       <header className="mb-4">
-        <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
         <h1 className="text-2xl font-semibold">Meetings</h1>
       </header>
 

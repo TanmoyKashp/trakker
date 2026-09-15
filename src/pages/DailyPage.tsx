@@ -21,7 +21,6 @@ export function DailyPage({ osState, os }: { osState: TrakkerOsState; os: Trakke
   return (
     <section className="page-enter mx-auto max-w-3xl px-4 py-5 sm:px-6">
       <header className="mb-4">
-        <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
         <h1 className="text-2xl font-semibold">Daily</h1>
       </header>
 
@@ -173,7 +172,7 @@ export function DailyPage({ osState, os }: { osState: TrakkerOsState; os: Trakke
             {osState.tasks
               .filter((t) => t.mode === "personal" && !t.completed)
               .map((task) => (
-                <TaskItem key={task.id} task={task} onToggle={(id) => os.updateTask(id, { completed: true })} onDelete={os.deleteTask} />
+                <TaskItem key={task.id} task={task} onToggle={(id) => os.updateTask(id, { completed: true })} onDelete={os.deleteTask} showContext={false} />
               ))}
           </div>
         ) : (

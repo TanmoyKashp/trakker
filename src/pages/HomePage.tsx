@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { ArrowRight, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { formatRelativeDue } from "../lib/dates";
 import { findUnifiedNextAction, nextDeadline, type UnifiedContext } from "../lib/nextAction";
 import { dateToHHMM, entryTimeRange, formatTime12, getScheduleSnapshot, toMinutes } from "../lib/time";
 import { todayISO } from "../hooks/useTrakkerOs";
@@ -41,6 +42,24 @@ interface UpNextItem {
   detail: string;
   when: string;
   href?: string;
+}
+
+/** "24 min left" / "1h 05m left" for an in-progress class; null when not running. */
+function timeLeftLabel(endTime: string, now: Date): string | null {
+  const t = toMinutes(dateToHHMM(now));
+  const end = toMinutes(endTime);
+  if (t >= end) return null;
+  const minsLeft = end - t;
+  return minsLeft >= 60 ? `${Math.floor(minsLeft / 60)}h ${String(minsLeft % 60).padStart(2, "0")}m left` : `${minsLeft} min left`;
+}
+
+/** "Starts in 1h 29m" / "Starts in 12 min" for a class later today; null otherwise. */
+function startsInLabel(startTime: string, now: Date): string | null {
+  const t = toMinutes(dateToHHMM(now));
+  const start = toMinutes(startTime);
+  if (start <= t) return null;
+  const mins = start - t;
+  return mins >= 60 ? `Starts in ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m` : `Starts in ${mins} min`;
 }
 
 /** 1–3 upcoming items, strictly filtered by mode. */
@@ -84,7 +103,7 @@ function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextIt
         key: `task-${task.id}`,
         title: task.title,
         detail: "Work task",
-        when: task.dueDate === today ? "Today" : (task.dueDate ?? ""),
+        when: formatRelativeDue(task.dueDate ?? today, today),
         href: "/tasks",
       });
     }
@@ -134,7 +153,7 @@ function buildUpNext(ctx: UnifiedContext, applications: Application[]): UpNextIt
         key: `ptask-${task.id}`,
         title: task.title,
         detail: "Personal task",
-        when: task.dueDate === today ? "Today" : (task.dueDate ?? ""),
+        when: formatRelativeDue(task.dueDate ?? today, today),
         href: "/daily",
       });
     }
@@ -165,7 +184,8 @@ function subscribeToClock(onStoreChange: () => void): () => void {
   };
 }
 
-function useNow(): Date {
+/** Shared 30s clock; Today reuses it so live times stay fresh without a second interval. */
+export function useNow(): Date {
   return useSyncExternalStore(subscribeToClock, () => clockNow);
 }
 
@@ -181,29 +201,38 @@ export function HomePage({ applications, tree, os, mode }: Props) {
   const dateLine = `${WEEKDAYS[now.getDay()]} · ${now.getDate()} ${MONTHS[now.getMonth()]}`;
   const timeLine = formatTime12(dateToHHMM(now));
 
+  // Live time context for the hero: what's running now, and what follows it.
+  const currentLeft = ctx.current ? timeLeftLabel(ctx.current.entry.endTime, now) : null;
+  const nextStartsIn = ctx.next && ctx.next.dayLabel === "Today" ? startsInLabel(ctx.next.entry.startTime, now) : null;
+  // Contextual free-window text, e.g. "Nothing scheduled until 10:50 AM".
+  const freeUntil =
+    !ctx.current && ctx.next && ctx.next.dayLabel === "Today" ? `Nothing scheduled until ${formatTime12(ctx.next.entry.startTime)}` : null;
+
   return (
-    <section className="page-enter flex min-h-[calc(100vh-9rem)] items-center justify-center px-5 py-12">
+    <section className="page-enter px-5 pb-10 pt-7">
       <div className="w-full max-w-2xl">
-        {/* Contextual header */}
-        <header className="mb-14 text-center">
-          <div className="font-serif text-sm font-semibold tracking-[0.28em] text-[var(--primary)]">TRAKKER</div>
-          <div className="mt-2 text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{mode === "work" ? "WORK" : "PERSONAL"}</div>
-          <div className="mt-6 font-serif text-2xl font-semibold tracking-wide text-[#242424]">{dateLine}</div>
+        {/* Contextual header — the mode is the eyebrow; the wordmark lives in the global header. */}
+        <header className="text-center">
+          <div className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">{mode === "work" ? "WORK" : "PERSONAL"}</div>
+          <div className="mt-2 font-serif text-2xl font-semibold tracking-wide text-[#242424]">{dateLine}</div>
           <div className="mt-1 text-sm text-stone-500">{timeLine}</div>
         </header>
 
         {/* Primary action — the answer to "what should I do now?" */}
-        <div className="mx-auto max-w-xl text-center">
-          <p className="mb-5 text-sm font-medium uppercase tracking-[0.18em] text-stone-500">YOUR NEXT THING TO DO</p>
-          <div className="card-shadow card-shadow-hover rounded-lg border border-stone-300/70 bg-[#FFFCF7] p-7 text-left">
+        <div className="mx-auto mt-10 max-w-xl text-center">
+          <p className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-stone-500">YOUR NEXT THING TO DO</p>
+          <div className="card-shadow card-shadow-hover rounded-lg border border-stone-300/70 bg-[#FFFCF7] p-6 text-left">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">{action.label}</div>
             <h2 className="text-balance mt-2 text-2xl font-semibold leading-tight">{action.title}</h2>
             {action.subtitle && <p className="mt-2 text-sm text-stone-600">{action.subtitle}</p>}
             {action.time && <p className="mt-3 text-base font-medium text-[var(--primary)]">{action.time}</p>}
-            {action.urgency && <p className="mt-2 text-sm text-stone-500">{action.urgency}</p>}
+            {currentLeft && <p className="mt-1 text-sm text-stone-500">{currentLeft}</p>}
+            {freeUntil && <p className="mt-1 text-sm text-stone-500">{freeUntil}</p>}
+            {nextStartsIn && !ctx.current && <p className="mt-1 text-sm text-stone-500">{nextStartsIn}</p>}
+            {action.urgency && !currentLeft && !freeUntil && <p className="mt-2 text-sm text-stone-500">{action.urgency}</p>}
             {action.href && (
               <Link
-                className="focus-ring mt-6 inline-flex items-center gap-2 rounded-md px-5 py-3 text-sm font-semibold text-white shadow-sm"
+                className="focus-ring mt-5 inline-flex items-center gap-2 rounded-md px-5 py-3 text-sm font-semibold text-white shadow-sm"
                 style={{ backgroundColor: "var(--primary)" }}
                 to={action.href}
               >

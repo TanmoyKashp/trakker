@@ -52,7 +52,6 @@ export function TreePage({ tree, coreAssets, localState, toggleTreeExpanded, set
     <section className="page-enter mx-auto max-w-7xl px-4 py-5 sm:px-6">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-        <div className="text-xs font-semibold tracking-[0.22em] text-stone-500">TRAKKER</div>
         <h1 className="text-2xl font-semibold">Application Tree</h1>
         </div>
         <div className="flex gap-2">

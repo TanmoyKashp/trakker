@@ -38,7 +38,7 @@ export default function App() {
           }
         />
         <Route path="/timetable" element={<TimetablePage />} />
-        <Route path="/tasks" element={<TasksPage osState={os.os} os={os} />} />
+        <Route path="/tasks" element={<TasksPage osState={os.os} os={os} mode={os.os.mode} />} />
         <Route path="/meetings" element={<MeetingsPage osState={os.os} os={os} />} />
         <Route path="/daily" element={<DailyPage osState={os.os} os={os} />} />
         <Route path="/goals" element={<GoalsPage osState={os.os} os={os} />} />
