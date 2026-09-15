@@ -54,7 +54,13 @@ if (isFirebaseConfigured) {
         ignoreUndefinedProperties: true,
       });
     } catch {
-      db = getFirestore(app);
+      try {
+        db = initializeFirestore(app, {
+          ignoreUndefinedProperties: true,
+        });
+      } catch {
+        db = getFirestore(app);
+      }
     }
   } catch (err) {
     console.error("Failed to initialize Firebase:", err);

@@ -198,7 +198,7 @@ const MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", 
 
 export function HomePage({ applications, tree, os, mode }: Props) {
   const { user } = useAuth();
-  const { status, isSyncing, syncNow } = useSyncStatus(user?.uid);
+  const { status, isSyncing, syncNow, errorMessage } = useSyncStatus(user?.uid);
   const now = useNow();
   const ctx = buildModeContext(applications, tree, os, mode, now);
   const action = findUnifiedNextAction(ctx);
@@ -225,7 +225,7 @@ export function HomePage({ applications, tree, os, mode }: Props) {
 
           {/* Manual Sync Now Button & Subtle Status */}
           {user && (
-            <div className="mt-3 flex items-center justify-center gap-2.5">
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2.5">
               <button
                 type="button"
                 onClick={() => void syncNow()}
@@ -245,7 +245,8 @@ export function HomePage({ applications, tree, os, mode }: Props) {
                 )}
                 {status === "error" && (
                   <span className="text-rose-700 inline-flex items-center gap-1">
-                    <AlertCircle size={12} className="text-rose-600" /> Sync failed
+                    <AlertCircle size={12} className="text-rose-600 shrink-0" />
+                    <span>Sync failed{errorMessage ? ` — ${errorMessage}` : ""}</span>
                   </span>
                 )}
                 {status === "offline" && <span className="text-stone-400">Offline</span>}

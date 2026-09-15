@@ -1,12 +1,13 @@
 import {
   doc,
   getDoc,
+  getDocFromServer,
   onSnapshot,
   setDoc,
   type Unsubscribe,
 } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
-import { db } from "./firebase";
+import { auth, db, isFirebaseConfigured, waitForAuthStateReady } from "./firebase";
 import type {
   Application,
   ApplicationOverride,
@@ -51,18 +52,93 @@ export interface FirestorePhdData {
 
 export type SyncStatus = "idle" | "syncing" | "synced" | "error" | "offline";
 
-let currentSyncStatus: SyncStatus = typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "idle";
-let lastSyncedAt: Date | null = null;
-const statusListeners = new Set<(status: SyncStatus, lastSync: Date | null) => void>();
+export interface SyncErrorInfo {
+  code: string;
+  message: string;
+  humanMessage: string;
+}
 
-export function setSyncStatus(status: SyncStatus) {
+let currentSyncStatus: SyncStatus = typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "idle";
+let currentErrorMessage: string | null = null;
+let lastSyncedAt: Date | null = null;
+let syncedResetTimer: ReturnType<typeof setTimeout> | null = null;
+const statusListeners = new Set<(status: SyncStatus, lastSync: Date | null, errorMessage: string | null) => void>();
+
+/**
+ * Extracts error code and human-readable message without exposing credentials/tokens.
+ */
+export function extractErrorInfo(err: unknown): SyncErrorInfo {
+  if (!err) {
+    return { code: "unknown", message: "Unknown error", humanMessage: "server error" };
+  }
+
+  const fbErr = err as { code?: string; message?: string };
+  const code = fbErr.code || "unknown";
+  const rawMsg = fbErr.message || String(err);
+  const cleanMsg = rawMsg.replace(/^Firebase(?:Error)?:\s*(?:\[[^\]]+\]\s*)?/i, "").trim();
+
+  let humanMessage: string;
+  if (code.includes("permission-denied") || rawMsg.toLowerCase().includes("permission")) {
+    humanMessage = "permission denied";
+  } else if (
+    code.includes("unavailable") ||
+    rawMsg.toLowerCase().includes("unavailable") ||
+    rawMsg.toLowerCase().includes("network")
+  ) {
+    humanMessage = "network unavailable";
+  } else if (code.includes("unauthenticated") || rawMsg.toLowerCase().includes("unauthenticated")) {
+    humanMessage = "not authenticated";
+  } else if (code.includes("deadline-exceeded") || rawMsg.toLowerCase().includes("timeout")) {
+    humanMessage = "request timeout";
+  } else if (code.includes("not-found")) {
+    humanMessage = "database not found";
+  } else {
+    humanMessage = cleanMsg.length < 30 ? cleanMsg.toLowerCase() : "sync error";
+  }
+
+  return { code, message: cleanMsg, humanMessage };
+}
+
+/**
+ * Formats development-console error log matching the required format.
+ */
+export function logSyncError(
+  err: unknown,
+  operation: string,
+  path: string,
+  authenticatedUid: string | null | undefined,
+): SyncErrorInfo {
+  const info = extractErrorInfo(err);
+  console.error(
+    `[SYNC ERROR]\n` +
+      `- Firebase error code: ${info.code}\n` +
+      `- Firebase error message: ${info.message}\n` +
+      `- operation being performed: ${operation}\n` +
+      `- Firestore path/collection: ${path}\n` +
+      `- authenticated UID: ${authenticatedUid || "none"}`,
+  );
+  return info;
+}
+
+export function setSyncStatus(status: SyncStatus, errorMessage: string | null = null) {
   currentSyncStatus = status;
+  currentErrorMessage = errorMessage;
   if (status === "synced") {
     lastSyncedAt = new Date();
+    currentErrorMessage = null;
+    if (syncedResetTimer) clearTimeout(syncedResetTimer);
+    syncedResetTimer = setTimeout(() => {
+      if (currentSyncStatus === "synced") {
+        setSyncStatus("idle");
+      }
+    }, 3000);
+  } else if (status === "syncing") {
+    currentErrorMessage = null;
   }
+
   for (const listener of statusListeners) {
     try {
-      listener(currentSyncStatus, lastSyncedAt);
+      listener(currentSyncStatus, lastSyncedAt, currentErrorMessage);
     } catch {
       // ignore listener error
     }
@@ -70,21 +146,21 @@ export function setSyncStatus(status: SyncStatus) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent("trakker:sync:status", {
-        detail: { status: currentSyncStatus, lastSyncedAt },
+        detail: { status: currentSyncStatus, lastSyncedAt, errorMessage: currentErrorMessage },
       }),
     );
   }
 }
 
-export function getSyncStatus(): { status: SyncStatus; lastSyncedAt: Date | null } {
-  return { status: currentSyncStatus, lastSyncedAt };
+export function getSyncStatus(): { status: SyncStatus; lastSyncedAt: Date | null; errorMessage: string | null } {
+  return { status: currentSyncStatus, lastSyncedAt, errorMessage: currentErrorMessage };
 }
 
 export function subscribeSyncStatus(
-  callback: (status: SyncStatus, lastSync: Date | null) => void,
+  callback: (status: SyncStatus, lastSync: Date | null, errorMessage: string | null) => void,
 ): () => void {
   statusListeners.add(callback);
-  callback(currentSyncStatus, lastSyncedAt);
+  callback(currentSyncStatus, lastSyncedAt, currentErrorMessage);
   return () => {
     statusListeners.delete(callback);
   };
@@ -211,33 +287,128 @@ function writeLocalJson<T>(key: string, value: T) {
  * Pushes local changes, pulls remote changes, merges safely, and updates state.
  */
 export async function performFullSync(uid: string): Promise<boolean> {
-  if (!db) return false;
+  console.log("[SYNC] starting");
 
   if (typeof navigator !== "undefined" && !navigator.onLine) {
+    console.warn("[SYNC] offline detected");
     setSyncStatus("offline");
     return false;
   }
 
+  if (!isFirebaseConfigured || !db) {
+    const errorInfo = logSyncError(
+      new Error("Firebase is not configured"),
+      "initialize check",
+      "N/A",
+      uid,
+    );
+    setSyncStatus("error", errorInfo.humanMessage);
+    return false;
+  }
+
   setSyncStatus("syncing");
+
+  // Ensure Firebase Auth has finished resolving and currentUser is available
+  await waitForAuthStateReady();
+  const currentUser = auth?.currentUser;
+  console.log("[SYNC] auth user:", currentUser ? currentUser.email || "authenticated" : "none");
+  console.log("[SYNC] uid:", currentUser?.uid || "none");
+  console.log("[SYNC] firestore initialized: true");
+
+  if (!currentUser || currentUser.uid !== uid) {
+    const errorInfo = logSyncError(
+      new Error(currentUser ? "User UID mismatch" : "User is not authenticated with Firebase Auth"),
+      "verify auth currentUser",
+      `users/${uid}`,
+      currentUser?.uid || null,
+    );
+    setSyncStatus("error", errorInfo.humanMessage);
+    return false;
+  }
+
+  // Ensure a valid token exists
+  try {
+    await currentUser.getIdToken(false);
+  } catch (tokenErr) {
+    const errorInfo = logSyncError(tokenErr, "refresh auth token", `users/${uid}`, uid);
+    setSyncStatus("error", errorInfo.humanMessage);
+    return false;
+  }
+
   const firestore = db;
+
+  // Requirement 7 & 8: Diagnostic Probe write and read
+  const probeDocRef = doc(firestore, "users", uid, "data", "_diagnostic_probe");
+  try {
+    console.log(`[SYNC] writing: users/${uid}/data/_diagnostic_probe`);
+    await setDoc(probeDocRef, {
+      probeAt: new Date().toISOString(),
+      client: "trakker-web",
+    });
+    console.log("[SYNC] write success");
+  } catch (probeWriteErr) {
+    const errorInfo = logSyncError(
+      probeWriteErr,
+      "diagnostic write probe",
+      `users/${uid}/data/_diagnostic_probe`,
+      uid,
+    );
+    setSyncStatus("error", errorInfo.humanMessage);
+    return false;
+  }
+
+  try {
+    console.log(`[SYNC] reading collection: users/${uid}/data/_diagnostic_probe`);
+    // Use getDocFromServer to verify actual cloud backend response, distinguishing from local cache (Requirement 14)
+    const probeSnap = await getDocFromServer(probeDocRef);
+    console.log("[SYNC] read success");
+    console.log(`[SYNC] records found: ${probeSnap.exists() ? 1 : 0}`);
+  } catch (probeReadErr) {
+    const errorInfo = logSyncError(
+      probeReadErr,
+      "diagnostic read probe (from server)",
+      `users/${uid}/data/_diagnostic_probe`,
+      uid,
+    );
+    setSyncStatus("error", errorInfo.humanMessage);
+    return false;
+  }
+
+  // Real Application Data Sync
   const osDocRef = doc(firestore, "users", uid, "data", "os");
   const ideasDocRef = doc(firestore, "users", uid, "data", "quickIdeas");
   const phdDocRef = doc(firestore, "users", uid, "data", "phd");
 
   try {
-    const [osSnap, ideasSnap, phdSnap] = await Promise.all([
-      getDoc(osDocRef),
-      getDoc(ideasDocRef),
-      getDoc(phdDocRef),
-    ]);
+    // Read remote documents
+    console.log(`[SYNC] reading collection: users/${uid}/data/os`);
+    const osSnap = await getDoc(osDocRef);
+    console.log("[SYNC] read success");
+    console.log(`[SYNC] records found: ${osSnap.exists() ? 1 : 0}`);
+
+    console.log(`[SYNC] reading collection: users/${uid}/data/quickIdeas`);
+    const ideasSnap = await getDoc(ideasDocRef);
+    console.log("[SYNC] read success");
+    console.log(
+      `[SYNC] records found: ${ideasSnap.exists() ? (ideasSnap.data() as FirestoreIdeasData)?.ideas?.length ?? 1 : 0}`,
+    );
+
+    console.log(`[SYNC] reading collection: users/${uid}/data/phd`);
+    const phdSnap = await getDoc(phdDocRef);
+    console.log("[SYNC] read success");
+    console.log(`[SYNC] records found: ${phdSnap.exists() ? 1 : 0}`);
 
     const nowIso = new Date().toISOString();
 
     // 1. OS Data (tasks, meetings, routines, workouts, goals, mode)
     const localOs = readLocalJson<TrakkerOsState>(STORAGE_KEY_OS);
     const remoteOs = osSnap.exists() ? (osSnap.data() as FirestoreOsData) : null;
+    console.log(
+      `[SYNC] local records: osTasks=${localOs?.tasks?.length || 0}, localGoals=${localOs?.goals?.length || 0}, localWorkouts=${localOs?.workouts?.length || 0}`,
+    );
 
     if (remoteOs || localOs) {
+      console.log("[SYNC] merging: reconciling OS state by stable ID and timestamps");
       const mergedTasks = mergeItemsById(localOs?.tasks || [], remoteOs?.tasks || []);
       const mergedMeetings = mergeItemsById(localOs?.meetings || [], remoteOs?.meetings || []);
       const mergedRoutines = mergeItemsById(localOs?.routines || [], remoteOs?.routines || []);
@@ -279,15 +450,20 @@ export async function performFullSync(uid: string): Promise<boolean> {
         goals: mergedOs.goals,
         updatedAt: nowIso,
       });
+
+      console.log(`[SYNC] writing: users/${uid}/data/os`);
       await setDoc(osDocRef, osPayload, { merge: true });
+      console.log("[SYNC] write success");
       lastRemoteOsUpdatedAt = nowIso;
     }
 
     // 2. Quick Ideas Data
     const localIdeas = readLocalJson<QuickIdea[]>(STORAGE_KEY_IDEAS) || [];
     const remoteIdeas = ideasSnap.exists() ? (ideasSnap.data() as FirestoreIdeasData)?.ideas || [] : [];
+    console.log(`[SYNC] local records: quickIdeas=${localIdeas.length}`);
 
     if (localIdeas.length || remoteIdeas.length) {
+      console.log("[SYNC] merging: reconciling quick ideas by stable ID and timestamps");
       const mergedIdeas = mergeItemsById(localIdeas, remoteIdeas);
       isApplyingRemoteChange = true;
       writeLocalJson(STORAGE_KEY_IDEAS, mergedIdeas);
@@ -300,7 +476,10 @@ export async function performFullSync(uid: string): Promise<boolean> {
         ideas: mergedIdeas,
         updatedAt: nowIso,
       });
+
+      console.log(`[SYNC] writing: users/${uid}/data/quickIdeas`);
       await setDoc(ideasDocRef, ideasPayload, { merge: true });
+      console.log("[SYNC] write success");
       lastRemoteIdeasUpdatedAt = nowIso;
     }
 
@@ -315,8 +494,10 @@ export async function performFullSync(uid: string): Promise<boolean> {
     }
     const localPhd = readLocalJson<LocalStateRaw>(STORAGE_KEY_PHD);
     const remotePhd = phdSnap.exists() ? (phdSnap.data() as FirestorePhdData) : null;
+    console.log(`[SYNC] local records: phdCustomApps=${localPhd?.customApplications?.length || 0}`);
 
     if (localPhd || remotePhd) {
+      console.log("[SYNC] merging: reconciling PhD progress and overrides");
       const mergedAppOverrides = mergeApplicationOverrides(
         localPhd?.applicationOverrides,
         remotePhd?.applicationOverrides,
@@ -352,15 +533,19 @@ export async function performFullSync(uid: string): Promise<boolean> {
         treeOverrides: mergedTreeOverrides,
         updatedAt: nowIso,
       });
+
+      console.log(`[SYNC] writing: users/${uid}/data/phd`);
       await setDoc(phdDocRef, phdPayload, { merge: true });
+      console.log("[SYNC] write success");
       lastRemotePhdUpdatedAt = nowIso;
     }
 
+    console.log("[SYNC] sync complete");
     setSyncStatus("synced");
     return true;
-  } catch (err) {
-    console.error("Full Firestore sync failed:", err);
-    setSyncStatus("error");
+  } catch (syncErr) {
+    const errorInfo = logSyncError(syncErr, "full sync data reconciliation", `users/${uid}/data/...`, uid);
+    setSyncStatus("error", errorInfo.humanMessage);
     return false;
   }
 }
@@ -424,8 +609,8 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
       }, 600);
     },
     (err) => {
-      console.warn("Firestore OS listener error (offline or permission):", err);
-      setSyncStatus("error");
+      const errorInfo = logSyncError(err, "onSnapshot listener (os)", `users/${uid}/data/os`, uid);
+      setSyncStatus("error", errorInfo.humanMessage);
     },
   );
 
@@ -449,7 +634,8 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
       }, 600);
     },
     (err) => {
-      console.warn("Firestore ideas listener error:", err);
+      const errorInfo = logSyncError(err, "onSnapshot listener (quickIdeas)", `users/${uid}/data/quickIdeas`, uid);
+      setSyncStatus("error", errorInfo.humanMessage);
     },
   );
 
@@ -499,7 +685,8 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
       }, 600);
     },
     (err) => {
-      console.warn("Firestore PhD listener error:", err);
+      const errorInfo = logSyncError(err, "onSnapshot listener (phd)", `users/${uid}/data/phd`, uid);
+      setSyncStatus("error", errorInfo.humanMessage);
     },
   );
 
@@ -521,6 +708,7 @@ export function stopFirestoreSync() {
   }
   activeUnsubscribes = [];
   currentSyncUid = null;
+  setSyncStatus("idle");
 }
 
 // Debounced cloud push timers
@@ -554,8 +742,11 @@ export function syncOsToFirestore(uid: string, state: TrakkerOsState) {
       lastRemoteOsUpdatedAt = payload.updatedAt;
       setSyncStatus("synced");
     } catch (err) {
-      console.warn("Failed to push OS state to Firestore (offline):", err);
-      setSyncStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error");
+      const errorInfo = logSyncError(err, "background push os", `users/${uid}/data/os`, uid);
+      setSyncStatus(
+        typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error",
+        errorInfo.humanMessage,
+      );
     }
   }, 300);
 }
@@ -579,8 +770,11 @@ export function syncIdeasToFirestore(uid: string, ideas: QuickIdea[]) {
       lastRemoteIdeasUpdatedAt = payload.updatedAt;
       setSyncStatus("synced");
     } catch (err) {
-      console.warn("Failed to push Quick Ideas to Firestore (offline):", err);
-      setSyncStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error");
+      const errorInfo = logSyncError(err, "background push quickIdeas", `users/${uid}/data/quickIdeas`, uid);
+      setSyncStatus(
+        typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error",
+        errorInfo.humanMessage,
+      );
     }
   }, 300);
 }
@@ -614,8 +808,11 @@ export function syncPhdToFirestore(
       lastRemotePhdUpdatedAt = payload.updatedAt;
       setSyncStatus("synced");
     } catch (err) {
-      console.warn("Failed to push PhD state to Firestore (offline):", err);
-      setSyncStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error");
+      const errorInfo = logSyncError(err, "background push phd", `users/${uid}/data/phd`, uid);
+      setSyncStatus(
+        typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error",
+        errorInfo.humanMessage,
+      );
     }
   }, 300);
 }
@@ -626,11 +823,13 @@ export function syncPhdToFirestore(
 export function useSyncStatus(uid?: string | null) {
   const [status, setStatus] = useState<SyncStatus>(getSyncStatus().status);
   const [lastSync, setLastSync] = useState<Date | null>(getSyncStatus().lastSyncedAt);
+  const [errorMessage, setErrorMessage] = useState<string | null>(getSyncStatus().errorMessage);
 
   useEffect(() => {
-    const unsub = subscribeSyncStatus((s, date) => {
+    const unsub = subscribeSyncStatus((s, date, err) => {
       setStatus(s);
       setLastSync(date);
+      setErrorMessage(err);
     });
 
     function handleOnline() {
@@ -663,6 +862,7 @@ export function useSyncStatus(uid?: string | null) {
   return {
     status,
     lastSyncedAt: lastSync,
+    errorMessage,
     isSyncing: status === "syncing",
     syncNow,
   };
