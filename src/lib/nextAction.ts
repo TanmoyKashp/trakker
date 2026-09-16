@@ -16,16 +16,19 @@ export interface NextAction {
 }
 
 export function firstIncompleteRequiredTask(app: Application): ApplicationTask | undefined {
-  return app.tasks.find((task) => task.required && task.status !== "completed" && task.status !== "not-applicable");
+  return app.tasks?.find((task) => task.required && task.status !== "completed" && task.status !== "not-applicable");
 }
 
-export function findNextAction(applications: Application[], tree: TreeNodeRecord[]): NextAction {
-  const appAction = applications
+export function findNextAction(applications: Application[] = [], tree: TreeNodeRecord[] = []): NextAction {
+  const safeApps = Array.isArray(applications) ? applications : [];
+  const safeTree = Array.isArray(tree) ? tree : [];
+
+  const appAction = safeApps
     .map((app) => ({ app, task: firstIncompleteRequiredTask(app), deadline: deadlineState(app.deadline, app.deadlineText, app.sourceStatus) }))
-    .filter(({ app, task }) => task && !terminalStages.has(app.stage))
+    .filter((item): item is { app: Application; task: ApplicationTask; deadline: ReturnType<typeof deadlineState> } => Boolean(item.task) && !terminalStages.has(item.app.stage))
     .sort((a, b) => actionScore(a.app, a.deadline.days) - actionScore(b.app, b.deadline.days))[0];
 
-  if (appAction.task) {
+  if (appAction?.task) {
     return {
       kind: "application",
       title: appAction.task.title,
@@ -37,7 +40,7 @@ export function findNextAction(applications: Application[], tree: TreeNodeRecord
     };
   }
 
-  const treeTask = tree.find((node) => !tree.some((child) => child.parentId === node.id) && node.status !== "completed" && node.status !== "not-applicable");
+  const treeTask = safeTree.find((node) => !safeTree.some((child) => child.parentId === node.id) && node.status !== "completed" && node.status !== "not-applicable");
   if (treeTask) {
     return {
       kind: "tree",
@@ -51,8 +54,9 @@ export function findNextAction(applications: Application[], tree: TreeNodeRecord
   return { kind: "done", title: "You're up to date." };
 }
 
-export function nextDeadline(applications: Application[]) {
-  return applications
+export function nextDeadline(applications: Application[] = []) {
+  const safeApps = Array.isArray(applications) ? applications : [];
+  return safeApps
     .map((app) => ({ app, deadline: deadlineState(app.deadline, app.deadlineText, app.sourceStatus) }))
     .filter(({ app, deadline }) => app.deadline && !terminalStages.has(app.stage) && Number.isFinite(deadline.days))
     .sort((a, b) => a.deadline.days - b.deadline.days)[0];

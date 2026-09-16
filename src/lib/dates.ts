@@ -12,6 +12,7 @@ export function shortDate(iso: string): string {
 
 /** Relative due-date label: "Overdue" · "Today" · "Tomorrow" · "Fri" · "15 Sep". */
 export function formatRelativeDue(dueDate: string, today: string): string {
+  if (!dueDate) return "";
   if (dueDate === today) return "Today";
   const parse = (iso: string) => new Date(`${iso}T00:00:00`).getTime();
   const diffDays = Math.round((parse(dueDate) - parse(today)) / 86_400_000);

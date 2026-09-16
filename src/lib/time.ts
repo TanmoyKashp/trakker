@@ -2,8 +2,9 @@ import { AFTERNOON_BREAK, DAY_NAMES, MORNING_BREAK, OFFICE_HOURS, TIMETABLE, typ
 
 /** Minutes since midnight for an "HH:MM" string. */
 export function toMinutes(hhmm: string): number {
+  if (!hhmm) return 0;
   const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + (m || 0);
+  return (h || 0) * 60 + (m || 0);
 }
 
 /** "HH:MM" from a Date. */
@@ -26,6 +27,7 @@ export function getWorkDayIndex(now: Date = new Date()): number | null {
 }
 
 export function formatTime12(hhmm: string): string {
+  if (!hhmm) return "";
   const minutes = toMinutes(hhmm);
   const h24 = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -36,12 +38,13 @@ export function formatTime12(hhmm: string): string {
 
 /** "12:35–2:20 PM" — meridiem shown once when both times share it. */
 export function formatTimeRange(start: string, end: string): string {
+  if (!start || !end) return "";
   const startMeridiem = toMinutes(start) < 720 ? "AM" : "PM";
   const endMeridiem = toMinutes(end) < 720 ? "AM" : "PM";
   if (startMeridiem === endMeridiem) {
     const h24 = Math.floor(toMinutes(start) / 60);
     const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-    return `${h12}:${start.split(":")[1]}–${formatTime12(end)}`;
+    return `${h12}:${(start.split(":")[1] || "00")}–${formatTime12(end)}`;
   }
   return `${formatTime12(start)}–${formatTime12(end)}`;
 }
