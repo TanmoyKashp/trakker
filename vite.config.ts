@@ -9,22 +9,70 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "pwa-192.svg", "pwa-512.svg"],
+      includeAssets: [
+        "favicon.ico",
+        "favicon.svg",
+        "favicon-16x16.png",
+        "favicon-32x32.png",
+        "apple-touch-icon.png",
+        "pwa-192x192.png",
+        "pwa-512x512.png",
+        "pwa-maskable-192x192.png",
+        "pwa-maskable-512x512.png",
+        "pwa-192.svg",
+        "pwa-512.svg"
+      ],
       manifest: {
         name: "Trakker",
         short_name: "TRAKKER",
-        description: "Personal PhD application tracker",
+        description: "Personal operating system & PhD tracker",
         theme_color: "#6B1F2A",
         background_color: "#F7F3ED",
         display: "standalone",
+        orientation: "portrait",
         start_url: "/",
+        scope: "/",
         icons: [
-          { src: "/pwa-192.svg", sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
-          { src: "/pwa-512.svg", sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }
+          {
+            src: "/pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any"
+          },
+          {
+            src: "/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any"
+          },
+          {
+            src: "/pwa-maskable-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable"
+          },
+          {
+            src: "/pwa-maskable-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable"
+          },
+          {
+            src: "/apple-touch-icon.png",
+            sizes: "180x180",
+            type: "image/png"
+          },
+          {
+            src: "/pwa-512.svg",
+            sizes: "512x512",
+            type: "image/svg+xml",
+            purpose: "any"
+          }
         ]
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,json}"],
+        cleanupOutdatedCaches: true,
+        globPatterns: ["**/*.{js,css,html,svg,ico,png,json,webmanifest}"],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/data/"),
