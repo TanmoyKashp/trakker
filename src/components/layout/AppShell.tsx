@@ -18,10 +18,10 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { isOwnerUser } from "../../lib/owner";
-import { applyThemeToDom, THEMES, useTheme, type ThemeId } from "../../lib/theme";
+import { applyThemeToDom, THEMES, useTheme } from "../../lib/theme";
 import { DottedRabbit } from "../rabbit/DottedRabbit";
 import { ThemeSelectorModal } from "../theme/ThemeSelectorModal";
-import type { Mode } from "../../types";
+import type { Mode, UserPreferences } from "../../types";
 
 const workNav = [
   { to: "/today", label: "Today", icon: CalendarDays },
@@ -92,30 +92,39 @@ export function AppShell({
   error,
   mode,
   onModeChange,
-  initialTheme,
-  onThemePersist,
+  initialPreferences,
+  onPreferencesPersist,
 }: {
   offline: boolean;
   error?: string;
   mode: Mode;
   onModeChange: (mode: Mode) => void;
-  initialTheme?: string;
-  onThemePersist?: (theme: string) => void;
+  initialPreferences?: UserPreferences;
+  onPreferencesPersist?: (prefs: UserPreferences) => void;
 }) {
   const { user, signOut, isOfflineMode } = useAuth();
   const isOwner = isOwnerUser(user);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
-  const { theme, setTheme } = useTheme(initialTheme as ThemeId | undefined, (t) => onThemePersist?.(t));
+  const { theme, darkSide, setTheme, setDarkSide } = useTheme(
+    initialPreferences,
+    (prefs) => onPreferencesPersist?.(prefs),
+  );
 
   // Keep DOM theme attribute and status bar meta updated
   useEffect(() => {
-    applyThemeToDom(theme, mode);
-  }, [theme, mode]);
+    applyThemeToDom(theme, mode, darkSide);
+  }, [theme, mode, darkSide]);
 
   const currentThemeDef = THEMES.find((t) => t.id === theme) || THEMES[0];
+  const themeLabel = darkSide ? `${currentThemeDef.name} · Dark` : currentThemeDef.name;
 
   return (
-    <div className="app-root min-h-screen bg-[#F7F3ED] text-[#242424]" data-theme={mode} data-palette={theme}>
+    <div
+      className="app-root min-h-screen bg-[#F7F3ED] text-[#242424]"
+      data-theme={mode}
+      data-palette={theme}
+      data-dark-side={darkSide ? "true" : "false"}
+    >
       {/* Mobile top bar: brand with dotted rabbit + mode switch + theme + sign out */}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-300/70 bg-[#F7F3ED]/95 px-4 py-2.5 backdrop-blur-md lg:hidden">
         <Link to="/" className="focus-ring flex items-center gap-2 font-serif text-base font-semibold tracking-[0.18em]">
@@ -128,7 +137,7 @@ export function AppShell({
             type="button"
             onClick={() => setIsThemeModalOpen(true)}
             aria-label="Choose Theme"
-            title="Choose Theme"
+            title={`Theme: ${themeLabel}`}
             className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-stone-300 bg-[#FFFCF7] text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors cursor-pointer"
           >
             <Palette size={16} />
@@ -209,7 +218,7 @@ export function AppShell({
               <span className="font-medium">Theme</span>
             </span>
             <span className="text-[11px] text-stone-500 capitalize bg-[#FFFCF7] px-1.5 py-0.5 rounded border border-stone-200">
-              {currentThemeDef.name}
+              {themeLabel}
             </span>
           </button>
 
@@ -268,7 +277,9 @@ export function AppShell({
 
       {/* Mobile bottom nav: strictly isolated by mode */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-stone-300/70 bg-[#FFFCF7] lg:hidden"
+        className={`fixed inset-x-0 bottom-0 z-10 grid border-t border-stone-300/70 bg-[#FFFCF7] lg:hidden ${
+          mode === "personal" && isOwner ? "grid-cols-5" : "grid-cols-4"
+        }`}
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <NavLink
@@ -344,7 +355,18 @@ export function AppShell({
               <Target size={18} />
               Goals
             </NavLink>
-            {isOwner ? (
+            <NavLink
+              to="/workout"
+              className={({ isActive }) =>
+                `focus-ring flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] ${
+                  isActive ? "text-[var(--primary)] font-medium" : "text-stone-600"
+                }`
+              }
+            >
+              <Dumbbell size={18} />
+              Workout
+            </NavLink>
+            {isOwner && (
               <NavLink
                 to="/applications"
                 className={({ isActive }) =>
@@ -355,18 +377,6 @@ export function AppShell({
               >
                 <GraduationCap size={18} />
                 PhD Apps
-              </NavLink>
-            ) : (
-              <NavLink
-                to="/workout"
-                className={({ isActive }) =>
-                  `focus-ring flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] ${
-                    isActive ? "text-[var(--primary)] font-medium" : "text-stone-600"
-                  }`
-                }
-              >
-                <Dumbbell size={18} />
-                Workout
               </NavLink>
             )}
           </>
@@ -379,6 +389,8 @@ export function AppShell({
         onClose={() => setIsThemeModalOpen(false)}
         activeTheme={theme}
         onSelectTheme={setTheme}
+        darkSide={darkSide}
+        onToggleDarkSide={setDarkSide}
       />
     </div>
   );

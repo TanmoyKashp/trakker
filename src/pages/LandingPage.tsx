@@ -23,13 +23,14 @@ export function LandingPage() {
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
-  const { theme, setTheme } = useTheme();
+  const { theme, darkSide, setTheme, setDarkSide } = useTheme();
 
   useEffect(() => {
-    applyThemeToDom(theme, "work");
-  }, [theme]);
+    applyThemeToDom(theme, "work", darkSide);
+  }, [theme, darkSide]);
 
   const currentThemeDef = THEMES.find((t) => t.id === theme) || THEMES[0];
+  const themeLabel = darkSide ? `${currentThemeDef.name} · Dark` : currentThemeDef.name;
 
   async function handleGoogleSignIn() {
     setSubmitting(true);
@@ -68,7 +69,7 @@ export function LandingPage() {
               aria-label="Change theme"
             >
               <Palette size={14} className="text-[var(--primary)]" />
-              <span className="hidden sm:inline capitalize">{currentThemeDef.name}</span>
+              <span className="hidden sm:inline capitalize">{themeLabel}</span>
             </button>
 
             <button
@@ -406,7 +407,7 @@ export function LandingPage() {
             onClick={() => setIsThemeModalOpen(true)}
             className="text-stone-500 hover:text-stone-800 transition-colors cursor-pointer text-[11px]"
           >
-            Theme: <span className="capitalize underline">{currentThemeDef.name}</span>
+            Theme: <span className="capitalize underline">{themeLabel}</span>
           </button>
         </div>
       </footer>
@@ -417,6 +418,8 @@ export function LandingPage() {
         onClose={() => setIsThemeModalOpen(false)}
         activeTheme={theme}
         onSelectTheme={setTheme}
+        darkSide={darkSide}
+        onToggleDarkSide={setDarkSide}
       />
     </div>
   );

@@ -5,7 +5,7 @@ import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useTrakkerData } from "./hooks/useTrakkerData";
 import { useTrakkerOs } from "./hooks/useTrakkerOs";
-import { startFirestoreSync } from "./lib/firestoreSync";
+import { startFirestoreSync, syncPreferencesToFirestore } from "./lib/firestoreSync";
 import { ApplicationDetailPage } from "./pages/ApplicationDetailPage";
 import { ApplicationsPage } from "./pages/ApplicationsPage";
 import { DailyPage } from "./pages/DailyPage";
@@ -70,8 +70,12 @@ function AppContent() {
             error={data.loadError}
             mode={os.os.mode}
             onModeChange={os.setMode}
-            initialTheme={os.os.theme}
-            onThemePersist={os.setTheme}
+            onPreferencesPersist={(prefs) => {
+              if (user?.uid) {
+                syncPreferencesToFirestore(user.uid, prefs);
+              }
+              os.setTheme(prefs.theme);
+            }}
           />
         }
       >
@@ -92,7 +96,7 @@ function AppContent() {
         <Route path="/meetings" element={<MeetingsPage osState={os.os} os={os} />} />
         <Route path="/daily" element={<DailyPage osState={os.os} os={os} />} />
         <Route path="/goals" element={<GoalsPage osState={os.os} os={os} />} />
-        <Route path="/workout" element={<WorkoutPage osState={os.os} os={os} />} />
+        <Route path="/workout" element={<WorkoutPage />} />
         {isOwner ? (
           <>
             <Route path="/applications" element={<ApplicationsPage {...data} />} />

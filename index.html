@@ -11,7 +11,30 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="TRAKKER" />
-    <title>Trakker — PhD Application Tracker</title>
+    <title>Trakker — Personal Operating System</title>
+    <script>
+      (function() {
+        try {
+          var rawPrefs = localStorage.getItem("trakker:preferences");
+          var theme = localStorage.getItem("trakker:theme") || "auto";
+          var isDark = localStorage.getItem("trakker:dark_side") === "true";
+          if (rawPrefs) {
+            var parsed = JSON.parse(rawPrefs);
+            if (parsed && typeof parsed.theme === "string") theme = parsed.theme;
+            if (parsed && typeof parsed.darkSide === "boolean") isDark = parsed.darkSide;
+          }
+          if (theme === "dark-side") { isDark = true; theme = "auto"; }
+          var root = document.documentElement;
+          root.setAttribute("data-palette", theme);
+          root.setAttribute("data-dark-side", isDark ? "true" : "false");
+          if (isDark) {
+            root.classList.add("dark-side");
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute("content", "#161618");
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

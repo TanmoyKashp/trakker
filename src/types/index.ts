@@ -184,6 +184,58 @@ export interface ActiveWorkout {
   durationSeconds: number; // 60
 }
 
+// ===== Full Workout Program (Application Reference + User Session) =====
+
+export type DayOfWeekName = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
+
+export interface ExerciseItem {
+  id: string;
+  order: number;
+  name: string;
+  target: string;
+  durationSeconds?: number;
+  isRest?: boolean;
+}
+
+export interface WorkoutPlan {
+  id: string;
+  name: string;
+  description: string;
+  days: Record<string, ExerciseItem[]>;
+}
+
+export interface WorkoutDayProgress {
+  planId: string;
+  day: DayOfWeekName;
+  date: string; // YYYY-MM-DD
+  completedExerciseIds: string[];
+  skippedExerciseIds: string[];
+  updatedAt: string;
+}
+
+export interface WorkoutSession {
+  id: string;
+  uid: string;
+  planId: string;
+  planName: string;
+  day: string;
+  date: string; // YYYY-MM-DD
+  startedAt: string; // ISO
+  finishedAt: string; // ISO
+  durationSeconds: number;
+  totalExercises: number;
+  completedCount: number;
+  skippedCount: number;
+  completedExerciseIds: string[];
+  skippedExerciseIds: string[];
+}
+
+export interface UserPreferences {
+  theme: string;
+  darkSide: boolean;
+  updatedAt: string;
+}
+
 export interface Goal {
   id: string;
   title: string;

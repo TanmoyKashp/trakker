@@ -68,89 +68,211 @@
   --accent: #f5d6cb;
 }
 
-/* Midnight theme: deep charcoal with warm off-white and gold accent */
-[data-palette="midnight"] {
-  --primary: #c29b38;
-  --primary-hover: #a8842a;
-  --primary-tint: rgba(194, 155, 56, 0.15);
-  --primary-border: rgba(194, 155, 56, 0.45);
-  --accent: #3a3424;
+/* ================= A's Dark Side — Night/Dark Mode System ================= */
+
+/* Default Dark Side Mode — Base Variables */
+[data-dark-side="true"] {
+  --bg-main: #161618;
+  --bg-surface: #1f1f23;
+  --bg-surface-subtle: #27272c;
+  --text-main: #f5f4f0;
+  --text-secondary: #d4d3ce;
+  --text-muted: #9e9d98;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+
+  /* Default Work / Maroon Accent */
+  --primary: #c94a5c;
+  --primary-hover: #db5c6e;
+  --primary-tint: rgba(201, 74, 92, 0.18);
+  --primary-border: rgba(201, 74, 92, 0.45);
+  --accent: #f0a8b4;
+  color-scheme: dark;
 }
 
-/* Midnight dark mode adjustments */
-html[data-palette="midnight"],
-html[data-palette="midnight"] body {
-  background: #18181b !important;
-  color: #f4f4f5 !important;
+/* Personal default in A's Dark Side: Matcha / calming olive accent */
+[data-dark-side="true"][data-theme="personal"]:not([data-palette]),
+[data-dark-side="true"][data-theme="personal"][data-palette="auto"],
+[data-dark-side="true"][data-palette="matcha"] {
+  --primary: #9baa5e;
+  --primary-hover: #adbc6e;
+  --primary-tint: rgba(155, 170, 94, 0.18);
+  --primary-border: rgba(155, 170, 94, 0.45);
+  --accent: #d8dec0;
 }
 
-html[data-palette="midnight"] .app-root,
-html[data-palette="midnight"] .landing-root {
-  background: #18181b !important;
-  color: #f4f4f5 !important;
+/* Explicit Maroon in A's Dark Side */
+[data-dark-side="true"][data-palette="maroon"],
+[data-dark-side="true"][data-theme="work"][data-palette="auto"] {
+  --primary: #c94a5c;
+  --primary-hover: #db5c6e;
+  --primary-tint: rgba(201, 74, 92, 0.18);
+  --primary-border: rgba(201, 74, 92, 0.45);
+  --accent: #f0a8b4;
 }
 
-html[data-palette="midnight"] .landing-rabbit-card,
-html[data-palette="midnight"] .landing-card {
-  background-color: #222226 !important;
-  border-color: rgba(63, 63, 70, 0.6) !important;
+/* Explicit Ocean in A's Dark Side: Nordic navy lightened for dark contrast */
+[data-dark-side="true"][data-palette="ocean"] {
+  --primary: #4a8cae;
+  --primary-hover: #5d9fbf;
+  --primary-tint: rgba(74, 140, 174, 0.18);
+  --primary-border: rgba(74, 140, 174, 0.45);
+  --accent: #b4d3e4;
 }
 
-html[data-palette="midnight"] .google-btn {
-  background-color: #222226 !important;
-  color: #f4f4f5 !important;
-  border-color: rgba(63, 63, 70, 0.8) !important;
+/* Explicit Lavender in A's Dark Side: dusty lavender */
+[data-dark-side="true"][data-palette="lavender"] {
+  --primary: #9e84b2;
+  --primary-hover: #b095c4;
+  --primary-tint: rgba(158, 132, 178, 0.18);
+  --primary-border: rgba(158, 132, 178, 0.45);
+  --accent: #d7c5e4;
 }
 
-html[data-palette="midnight"] .google-btn:hover {
+/* Explicit Terracotta in A's Dark Side: desert terracotta */
+[data-dark-side="true"][data-palette="terracotta"] {
+  --primary: #c4684a;
+  --primary-hover: #d57758;
+  --primary-tint: rgba(196, 104, 74, 0.18);
+  --primary-border: rgba(196, 104, 74, 0.45);
+  --accent: #ebbaa8;
+}
+
+/* A's Dark Side Global Surface and Contrast Overrides */
+html[data-dark-side="true"],
+html[data-dark-side="true"] body,
+html[data-dark-side="true"] .app-root,
+html[data-dark-side="true"] .landing-root {
+  background-color: #161618 !important;
+  color: #f5f4f0 !important;
+}
+
+/* Cards and Inset Surfaces: Subtle tonal difference, avoid heavy borders */
+html[data-dark-side="true"] .bg-\[\#FFFCF7\],
+html[data-dark-side="true"] .bg-\[\#F7F3ED\],
+html[data-dark-side="true"] .bg-\[\#F7F3ED\]\/60,
+html[data-dark-side="true"] .bg-\[\#F7F3ED\]\/90,
+html[data-dark-side="true"] .bg-\[\#F7F3ED\]\/95 {
+  background-color: #1f1f23 !important;
+}
+
+/* Header, Sidebar, Navs */
+html[data-dark-side="true"] aside,
+html[data-dark-side="true"] header,
+html[data-dark-side="true"] nav {
+  background-color: #1a1a1e !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-dark-side="true"] .landing-root header {
+  background-color: rgba(22, 22, 24, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Form inputs & interactive controls */
+html[data-dark-side="true"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-dark-side="true"] select,
+html[data-dark-side="true"] textarea {
+  background-color: #17171b !important;
+  color: #f5f4f0 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html[data-dark-side="true"] input:focus,
+html[data-dark-side="true"] select:focus,
+html[data-dark-side="true"] textarea:focus {
+  border-color: var(--primary) !important;
+}
+
+/* Text Hierarchy in Dark Mode: Warm Off-White and Muted Tones */
+html[data-dark-side="true"] .text-\[\#242424\],
+html[data-dark-side="true"] .text-stone-900,
+html[data-dark-side="true"] .text-stone-800 {
+  color: #f5f4f0 !important;
+}
+
+html[data-dark-side="true"] .text-stone-700 {
+  color: #d4d3ce !important;
+}
+
+html[data-dark-side="true"] .text-stone-600 {
+  color: #b5b4ae !important;
+}
+
+html[data-dark-side="true"] .text-stone-500 {
+  color: #9e9d98 !important;
+}
+
+html[data-dark-side="true"] .text-stone-400 {
+  color: #787670 !important;
+}
+
+/* Borders: subtle tonal contrast */
+html[data-dark-side="true"] .border-stone-200,
+html[data-dark-side="true"] .border-stone-300,
+html[data-dark-side="true"] .border-stone-200\/80,
+html[data-dark-side="true"] .border-stone-200\/70,
+html[data-dark-side="true"] .border-stone-200\/90,
+html[data-dark-side="true"] .border-stone-300\/70,
+html[data-dark-side="true"] .border-stone-300\/80 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Hover surfaces */
+html[data-dark-side="true"] .hover\:bg-stone-100:hover,
+html[data-dark-side="true"] .hover\:bg-stone-50:hover,
+html[data-dark-side="true"] .hover\:bg-\[\#F7F3ED\]:hover {
+  background-color: #27272c !important;
+}
+
+html[data-dark-side="true"] .bg-white {
+  background-color: #1f1f23 !important;
+  color: #f5f4f0 !important;
+}
+
+html[data-dark-side="true"] .bg-stone-100,
+html[data-dark-side="true"] .bg-stone-200\/70 {
+  background-color: #27272c !important;
+  color: #d4d3ce !important;
+}
+
+html[data-dark-side="true"] .bg-stone-200 {
   background-color: #2a2a30 !important;
 }
 
-html[data-palette="ocean"] .landing-root {
-  background-color: #f4f6f8 !important;
-}
-html[data-palette="lavender"] .landing-root {
-  background-color: #f6f4f7 !important;
-}
-html[data-palette="terracotta"] .landing-root {
-  background-color: #f8f4f0 !important;
+/* Google Sign-in and Secondary Buttons */
+html[data-dark-side="true"] .google-btn {
+  background-color: #1f1f23 !important;
+  color: #f5f4f0 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
-html[data-palette="midnight"] aside,
-html[data-palette="midnight"] header,
-html[data-palette="midnight"] nav {
-  background-color: #202024 !important;
-  border-color: rgba(63, 63, 70, 0.7) !important;
+html[data-dark-side="true"] .google-btn:hover {
+  background-color: #27272c !important;
 }
 
-html[data-palette="midnight"] .bg-\[\#FFFCF7\],
-html[data-palette="midnight"] .bg-\[\#F7F3ED\] {
-  background-color: #222226 !important;
+/* Badges / Status in Dark Mode */
+html[data-dark-side="true"] .status-green {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #6ee7b7 !important;
 }
 
-html[data-palette="midnight"] .text-\[\#242424\] {
-  color: #f4f4f5 !important;
+html[data-dark-side="true"] .status-yellow {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fcd34d !important;
 }
 
-html[data-palette="midnight"] .text-stone-700,
-html[data-palette="midnight"] .text-stone-800 {
-  color: #e4e4e7 !important;
+html[data-dark-side="true"] .status-red {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+  border-color: rgba(244, 63, 94, 0.35) !important;
+  color: #fda4af !important;
 }
 
-html[data-palette="midnight"] .text-stone-500,
-html[data-palette="midnight"] .text-stone-600 {
-  color: #a1a1aa !important;
-}
-
-html[data-palette="midnight"] .border-stone-200,
-html[data-palette="midnight"] .border-stone-300,
-html[data-palette="midnight"] .border-stone-300\/70,
-html[data-palette="midnight"] .border-stone-300\/80 {
-  border-color: rgba(63, 63, 70, 0.6) !important;
-}
-
-html[data-palette="midnight"] .hover\:bg-stone-100:hover {
-  background-color: #2a2a30 !important;
+html[data-dark-side="true"] .status-gray {
+  background-color: rgba(150, 150, 155, 0.15) !important;
+  border-color: rgba(150, 150, 155, 0.3) !important;
+  color: #d4d3ce !important;
 }
 
 /* ================= Dotted Rabbit Animations ================= */

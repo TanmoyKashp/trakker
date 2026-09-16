@@ -24,6 +24,7 @@ import type {
   TrakkerOsState,
   TreeNodeRecord,
   TreeOverride,
+  UserPreferences,
   WorkoutItem,
   WorkoutSettings,
 } from "../types";
@@ -31,6 +32,7 @@ import type {
 export const STORAGE_KEY_OS = "trakker:os:v2";
 export const STORAGE_KEY_IDEAS = "trakker:ideas:v1";
 export const STORAGE_KEY_PHD = "trakker:v1";
+export const STORAGE_KEY_PREFERENCES = "trakker:preferences";
 
 export interface FirestoreOsData {
   mode: "work" | "personal";
@@ -277,6 +279,7 @@ let isApplyingRemoteChange = false;
 let lastRemoteOsUpdatedAt: string | null = null;
 let lastRemoteIdeasUpdatedAt: string | null = null;
 let lastRemotePhdUpdatedAt: string | null = null;
+let lastRemotePreferencesUpdatedAt: string | null = null;
 
 function readLocalJson<T>(key: string): T | null {
   try {
@@ -574,6 +577,55 @@ export async function performFullSync(uid: string): Promise<boolean> {
       }
     }
 
+    // 4. User Preferences (Theme & A's Dark Side)
+    const prefsDocRef = doc(firestore, "users", uid, "data", "preferences");
+    console.log(`[SYNC] reading collection: users/${uid}/data/preferences`);
+    const prefsSnap = await getDoc(prefsDocRef);
+    console.log("[SYNC] read success");
+    console.log(`[SYNC] records found: ${prefsSnap.exists() ? 1 : 0}`);
+
+    const localPrefs = readLocalJson<UserPreferences>(STORAGE_KEY_PREFERENCES);
+    const remotePrefs = prefsSnap.exists() ? (prefsSnap.data() as UserPreferences) : null;
+
+    if (remotePrefs || localPrefs) {
+      const localTime = localPrefs?.updatedAt || "";
+      const remoteTime = remotePrefs?.updatedAt || "";
+      let winningPrefs: UserPreferences;
+
+      if (remotePrefs && (!localPrefs || remoteTime >= localTime)) {
+        winningPrefs = remotePrefs;
+      } else if (localPrefs) {
+        winningPrefs = localPrefs;
+      } else {
+        winningPrefs = { theme: "auto", darkSide: false, updatedAt: nowIso };
+      }
+
+      isApplyingRemoteChange = true;
+      writeLocalJson(STORAGE_KEY_PREFERENCES, winningPrefs);
+      try {
+        localStorage.setItem("trakker:theme", winningPrefs.theme);
+        localStorage.setItem("trakker:dark_side", String(winningPrefs.darkSide));
+      } catch {
+        // quota
+      }
+      window.dispatchEvent(new CustomEvent("trakker:preferences:changed", { detail: winningPrefs }));
+      window.dispatchEvent(new CustomEvent("trakker:theme:changed", { detail: winningPrefs.theme }));
+      setTimeout(() => {
+        isApplyingRemoteChange = false;
+      }, 600);
+
+      const prefsPayload = sanitizeForFirestore<UserPreferences>({
+        theme: winningPrefs.theme,
+        darkSide: winningPrefs.darkSide,
+        updatedAt: winningPrefs.updatedAt || nowIso,
+      });
+
+      console.log(`[SYNC] writing: users/${uid}/data/preferences`);
+      await setDoc(prefsDocRef, prefsPayload, { merge: true });
+      console.log("[SYNC] write success");
+      lastRemotePreferencesUpdatedAt = prefsPayload.updatedAt;
+    }
+
     console.log("[SYNC] sync complete");
     setSyncStatus("synced");
     return true;
@@ -677,6 +729,36 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
     },
   );
 
+  const prefsDocRef = doc(firestore, "users", uid, "data", "preferences");
+  const unsubPreferences = onSnapshot(
+    prefsDocRef,
+    (snap) => {
+      if (!snap.exists() || isApplyingRemoteChange) return;
+      const remote = snap.data() as UserPreferences;
+      if (remote.updatedAt && remote.updatedAt === lastRemotePreferencesUpdatedAt) return;
+
+      lastRemotePreferencesUpdatedAt = remote.updatedAt;
+      isApplyingRemoteChange = true;
+      writeLocalJson(STORAGE_KEY_PREFERENCES, remote);
+      try {
+        localStorage.setItem("trakker:theme", remote.theme);
+        localStorage.setItem("trakker:dark_side", String(remote.darkSide));
+      } catch {
+        // quota
+      }
+      window.dispatchEvent(new CustomEvent("trakker:preferences:changed", { detail: remote }));
+      window.dispatchEvent(new CustomEvent("trakker:theme:changed", { detail: remote.theme }));
+      setSyncStatus("synced");
+      setTimeout(() => {
+        isApplyingRemoteChange = false;
+      }, 600);
+    },
+    (err) => {
+      const errorInfo = logSyncError(err, "onSnapshot listener (preferences)", `users/${uid}/data/preferences`, uid);
+      setSyncStatus("error", errorInfo.humanMessage);
+    },
+  );
+
   let unsubPhd: Unsubscribe | null = null;
   if (isOwner) {
     unsubPhd = onSnapshot(
@@ -743,7 +825,9 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
     );
   }
 
-  activeUnsubscribes = unsubPhd ? [unsubOs, unsubIdeas, unsubPhd] : [unsubOs, unsubIdeas];
+  activeUnsubscribes = unsubPhd
+    ? [unsubOs, unsubIdeas, unsubPreferences, unsubPhd]
+    : [unsubOs, unsubIdeas, unsubPreferences];
 
   return () => {
     stopFirestoreSync();
@@ -768,6 +852,36 @@ export function stopFirestoreSync() {
 let pushOsTimer: ReturnType<typeof setTimeout> | null = null;
 let pushIdeasTimer: ReturnType<typeof setTimeout> | null = null;
 let pushPhdTimer: ReturnType<typeof setTimeout> | null = null;
+let pushPreferencesTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Pushes updated Preferences (Theme & A's Dark Side) to Firestore in background. */
+export function syncPreferencesToFirestore(uid: string, preferences: UserPreferences) {
+  const firestore = db;
+  if (!firestore || isApplyingRemoteChange) return;
+
+  if (pushPreferencesTimer) clearTimeout(pushPreferencesTimer);
+  pushPreferencesTimer = setTimeout(async () => {
+    setSyncStatus("syncing");
+    const nowIso = new Date().toISOString();
+    const payload = sanitizeForFirestore<UserPreferences>({
+      theme: preferences.theme,
+      darkSide: preferences.darkSide,
+      updatedAt: preferences.updatedAt || nowIso,
+    });
+    const docRef = doc(firestore, "users", uid, "data", "preferences");
+    try {
+      await setDoc(docRef, payload, { merge: true });
+      lastRemotePreferencesUpdatedAt = payload.updatedAt;
+      setSyncStatus("synced");
+    } catch (err) {
+      const errorInfo = logSyncError(err, "background push preferences", `users/${uid}/data/preferences`, uid);
+      setSyncStatus(
+        typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error",
+        errorInfo.humanMessage,
+      );
+    }
+  }, 300);
+}
 
 /** Pushes updated local OS state to Firestore in background. */
 export function syncOsToFirestore(uid: string, state: TrakkerOsState) {

@@ -35,10 +35,16 @@ service cloud.firestore {
         allow read, write: if isUser(userId) && isOwner();
       }
 
-      // Standard user data documents (os, quickIdeas, _diagnostic_probe, etc.)
+      // Standard user data documents (os, quickIdeas, preferences, workoutState, _diagnostic_probe, etc.)
       // Excludes 'phd' document to ensure non-owners cannot circumvent the owner restriction
       match /data/{document} {
         allow read, write: if isUser(userId) && document != 'phd';
+      }
+
+      // Any subcollections under data (such as data/workoutSessions/{sessionId})
+      // Excludes 'phd' to ensure non-owners cannot circumvent the owner restriction
+      match /data/{subcollection}/{document=**} {
+        allow read, write: if isUser(userId) && subcollection != 'phd';
       }
 
       // Any other subcollections under users/{userId} (excluding data)
