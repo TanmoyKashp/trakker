@@ -121,8 +121,8 @@ export interface UnifiedContext {
 interface TimetableEntryLike {
   id: string;
   subject: string;
-  courseCode: string;
-  sections: string[];
+  courseCode?: string | null;
+  sections?: string[];
   batch?: string | null;
   room: string;
   startTime: string;

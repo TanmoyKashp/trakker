@@ -204,8 +204,24 @@ export interface TrakkerOsState {
   workout: WorkoutSettings;
   workouts: WorkoutItem[];
   goals: Goal[];
+  timetable: TimetableEntry[];
   theme?: string;
   updatedAt?: string;
+}
+
+export interface TimetableEntry {
+  id: string;
+  day: number; // 0 = Monday … 6 = Sunday
+  startTime: string; // "HH:MM" 24h
+  endTime: string; // "HH:MM" 24h
+  subject: string;
+  room: string;
+  batch?: string | null;
+  courseCode?: string | null;
+  sections?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
 }
 
 // ===== Quick Ideas (Personal mode only) =====

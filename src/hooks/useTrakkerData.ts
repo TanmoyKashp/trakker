@@ -36,15 +36,20 @@ function mergeTreeNode(node: TreeNodeRecord, local: LocalState): TreeNodeRecord 
 }
 
 import { syncPhdToFirestore } from "../lib/firestoreSync";
+import { isOwnerUser } from "../lib/owner";
+import { auth } from "../lib/firebase";
 
 export function useTrakkerData(userId?: string | null) {
-  const [reference, setReference] = useState<ReferenceData>(bundledReferenceData);
+  const isOwner = isOwnerUser(auth?.currentUser);
+  const [reference, setReference] = useState<ReferenceData>(isOwner ? bundledReferenceData : { applications: [], tree: [], applicationTemplate: [], coreAssets: [] });
   const [offline, setOffline] = useState(false);
   const [loadError, setLoadError] = useState<string | undefined>();
   const [localState, setLocalState] = useLocalStorage<LocalState>("trakker:v1", emptyLocalState);
 
   // Listen for remote Firestore sync updates
   useEffect(() => {
+    if (!isOwner) return;
+
     function handleRemoteSync(event: Event) {
       const customEvent = event as CustomEvent<Partial<LocalState>>;
       if (customEvent.detail) {
@@ -57,25 +62,38 @@ export function useTrakkerData(userId?: string | null) {
         }));
       }
     }
-    window.addEventListener("trakker:sync:phd", handleRemoteSync);
-    return () => window.removeEventListener("trakker:sync:phd", handleRemoteSync);
-  }, [setLocalState]);
 
-  // Sync to Firestore on local changes
+    function handleRefSync(event: Event) {
+      const customEvent = event as CustomEvent<ReferenceData>;
+      if (customEvent.detail) {
+        setReference(customEvent.detail);
+      }
+    }
+
+    window.addEventListener("trakker:sync:phd", handleRemoteSync);
+    window.addEventListener("trakker:sync:reference", handleRefSync);
+    return () => {
+      window.removeEventListener("trakker:sync:phd", handleRemoteSync);
+      window.removeEventListener("trakker:sync:reference", handleRefSync);
+    };
+  }, [isOwner, setLocalState]);
+
+  // Sync to Firestore on local changes (owner only)
   useEffect(() => {
-    if (userId) {
+    if (userId && isOwner) {
       syncPhdToFirestore(userId, localState);
     }
-  }, [localState, userId]);
+  }, [localState, userId, isOwner]);
 
   useEffect(() => {
+    if (!isOwner) return;
     void loadReferenceData().then((result) => {
       setReference(result.data);
       setOffline(result.offline);
       setLoadError(result.error);
       setLocalState((current) => ({ ...current, lastReferenceData: result.data }));
     });
-  }, [setLocalState]);
+  }, [isOwner, setLocalState]);
 
   const applications = useMemo(
     () => [

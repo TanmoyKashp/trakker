@@ -165,7 +165,7 @@ export function DottedRabbit({
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`select-none transition-transform ${isHopping ? "rabbit-hop" : ""} ${
-        interactive ? "cursor-pointer hover:scale-[1.03] active:scale-[0.98]" : ""
+        interactive ? "cursor-pointer hover:scale-[1.03] active:scale-[0.98] outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-4 rounded-2xl" : ""
       } ${className}`}
       aria-hidden={!interactive}
       role={interactive ? "button" : undefined}

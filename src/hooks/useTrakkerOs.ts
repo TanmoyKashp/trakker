@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Goal, Meeting, Mode, Routine, Task, TrakkerOsState, WorkoutItem, WorkoutSettings } from "../types";
+import type { Goal, Meeting, Mode, Routine, Task, TimetableEntry, TrakkerOsState, WorkoutItem, WorkoutSettings } from "../types";
 
 const STORAGE_KEY = "trakker:os:v2";
-
-const defaultWorkouts: WorkoutItem[] = [
-  { id: "default-workout", title: "Daily Workout", startTime: "17:00", durationMinutes: 45, enabled: true },
-];
 
 const defaultState: TrakkerOsState = {
   version: 2,
@@ -14,9 +10,10 @@ const defaultState: TrakkerOsState = {
   meetings: [],
   routines: [],
   routineCompletions: {},
-  workout: { enabled: true, startTime: "17:00" },
-  workouts: defaultWorkouts,
+  workout: { enabled: false, startTime: "17:00" },
+  workouts: [],
   goals: [],
+  timetable: [],
 };
 
 /** Forward-compatible migration: fills missing fields, never drops existing user data. */
@@ -24,10 +21,10 @@ function migrate(raw: unknown): TrakkerOsState {
   if (!raw || typeof raw !== "object") return { ...defaultState };
   const stored = raw as Partial<TrakkerOsState>;
 
-  const workouts: WorkoutItem[] = Array.isArray(stored.workouts) && stored.workouts.length > 0
+  const workouts: WorkoutItem[] = Array.isArray(stored.workouts)
     ? stored.workouts.map((w) => ({
         id: w.id || crypto.randomUUID(),
-        title: w.title || "Daily Workout",
+        title: w.title || "Workout",
         startTime: w.startTime || "17:00",
         durationMinutes: typeof w.durationMinutes === "number" ? w.durationMinutes : 45,
         enabled: typeof w.enabled === "boolean" ? w.enabled : true,
@@ -35,22 +32,31 @@ function migrate(raw: unknown): TrakkerOsState {
         updatedAt: w.updatedAt,
         deletedAt: w.deletedAt ?? null,
       }))
-    : [
-        {
-          id: "default-workout",
-          title: "Daily Workout",
-          startTime: stored.workout?.startTime ?? "17:00",
-          durationMinutes: 45,
-          enabled: stored.workout?.enabled ?? true,
-        },
-      ];
+    : [];
 
   const primaryWorkout = workouts.find((w) => w.enabled && !w.deletedAt) ?? workouts.find((w) => !w.deletedAt) ?? workouts[0];
   const workoutSetting: WorkoutSettings = {
-    enabled: primaryWorkout ? primaryWorkout.enabled : (stored.workout?.enabled ?? true),
+    enabled: primaryWorkout ? primaryWorkout.enabled : (stored.workout?.enabled ?? false),
     startTime: primaryWorkout ? primaryWorkout.startTime : (stored.workout?.startTime ?? "17:00"),
     updatedAt: stored.workout?.updatedAt,
   };
+
+  const timetable: TimetableEntry[] = Array.isArray(stored.timetable)
+    ? stored.timetable.map((t) => ({
+        id: t.id || crypto.randomUUID(),
+        subject: t.subject || "Class",
+        room: t.room || "",
+        batch: t.batch ?? null,
+        day: typeof t.day === "number" ? t.day : 0,
+        startTime: t.startTime || "09:00",
+        endTime: t.endTime || "10:00",
+        courseCode: t.courseCode ?? null,
+        sections: Array.isArray(t.sections) ? t.sections : [],
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        deletedAt: t.deletedAt ?? null,
+      }))
+    : [];
 
   return {
     version: 2,
@@ -62,6 +68,7 @@ function migrate(raw: unknown): TrakkerOsState {
     workout: workoutSetting,
     workouts,
     goals: Array.isArray(stored.goals) ? stored.goals : [],
+    timetable,
     theme: typeof stored.theme === "string" ? stored.theme : undefined,
     updatedAt: stored.updatedAt,
   };
@@ -360,6 +367,56 @@ export function useTrakkerOs(userId?: string | null) {
     }));
   }, []);
 
+  const addTimetableEntry = useCallback(
+    (input: {
+      subject: string;
+      room: string;
+      batch?: string | null;
+      day: number;
+      startTime: string;
+      endTime: string;
+      courseCode?: string | null;
+      sections?: string[];
+    }) => {
+      const nowIso = new Date().toISOString();
+      const entry: TimetableEntry = {
+        id: newId(),
+        subject: input.subject.trim(),
+        room: input.room.trim(),
+        batch: input.batch?.trim() || null,
+        day: input.day,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        courseCode: input.courseCode?.trim() || null,
+        sections: input.sections || [],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        deletedAt: null,
+      };
+      setState((s) => ({ ...s, updatedAt: nowIso, timetable: [...s.timetable, entry] }));
+      return entry;
+    },
+    [],
+  );
+
+  const updateTimetableEntry = useCallback((id: string, patch: Partial<TimetableEntry>) => {
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      timetable: s.timetable.map((t) => (t.id === id ? { ...t, ...patch, updatedAt: nowIso } : t)),
+    }));
+  }, []);
+
+  const deleteTimetableEntry = useCallback((id: string) => {
+    const nowIso = new Date().toISOString();
+    setState((s) => ({
+      ...s,
+      updatedAt: nowIso,
+      timetable: s.timetable.map((t) => (t.id === id ? { ...t, deletedAt: nowIso, updatedAt: nowIso } : t)),
+    }));
+  }, []);
+
   // Filter out soft-deleted items for UI rendering
   const visibleState = useMemo<TrakkerOsState>(() => {
     return {
@@ -369,6 +426,7 @@ export function useTrakkerOs(userId?: string | null) {
       routines: state.routines.filter((r) => !r.deletedAt),
       workouts: state.workouts.filter((w) => !w.deletedAt),
       goals: state.goals.filter((g) => !g.deletedAt),
+      timetable: state.timetable.filter((t) => !t.deletedAt),
     };
   }, [state]);
 
@@ -395,6 +453,9 @@ export function useTrakkerOs(userId?: string | null) {
     updateGoal,
     toggleGoal,
     deleteGoal,
+    addTimetableEntry,
+    updateTimetableEntry,
+    deleteTimetableEntry,
     setTheme: useCallback((theme: string) => {
       const nowIso = new Date().toISOString();
       setState((s) => ({ ...s, theme, updatedAt: nowIso }));

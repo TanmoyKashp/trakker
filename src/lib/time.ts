@@ -46,17 +46,20 @@ export function formatTimeRange(start: string, end: string): string {
   return `${formatTime12(start)}–${formatTime12(end)}`;
 }
 
-export function getDayEntries(dayIndex: number): TimetableEntry[] {
-  return TIMETABLE.filter((entry) => entry.day === dayIndex).sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
+export function getDayEntries(dayIndex: number, timetableEntries?: TimetableEntry[]): TimetableEntry[] {
+  const source = timetableEntries ?? TIMETABLE;
+  return source
+    .filter((entry) => entry.day === dayIndex && !entry.deletedAt)
+    .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
 }
 
 /** The class happening right now, or null. Class ends exactly at its end time. */
-export function getCurrentScheduleItem(now: Date = new Date()): TimetableEntry | null {
+export function getCurrentScheduleItem(now: Date = new Date(), timetableEntries?: TimetableEntry[]): TimetableEntry | null {
   const workDay = getWorkDayIndex(now);
   if (workDay === null) return null;
   const t = toMinutes(dateToHHMM(now));
   return (
-    getDayEntries(workDay).find((entry) => t >= toMinutes(entry.startTime) && t < toMinutes(entry.endTime)) ?? null
+    getDayEntries(workDay, timetableEntries).find((entry) => t >= toMinutes(entry.startTime) && t < toMinutes(entry.endTime)) ?? null
   );
 }
 
@@ -68,13 +71,13 @@ export interface UpcomingScheduleItem {
 }
 
 /** Next class starting strictly after `now`, looking ahead up to 7 days. */
-export function getNextScheduleItem(now: Date = new Date()): UpcomingScheduleItem | null {
+export function getNextScheduleItem(now: Date = new Date(), timetableEntries?: TimetableEntry[]): UpcomingScheduleItem | null {
   const t = toMinutes(dateToHHMM(now));
   for (let ahead = 0; ahead < 8; ahead += 1) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ahead);
     const workDay = getWorkDayIndex(date);
     if (workDay === null) continue;
-    const entry = getDayEntries(workDay).find((item) => ahead > 0 || toMinutes(item.startTime) > t);
+    const entry = getDayEntries(workDay, timetableEntries).find((item) => ahead > 0 || toMinutes(item.startTime) > t);
     if (entry) {
       return {
         entry,
@@ -120,24 +123,26 @@ export function entryTimeRange(entry: TimetableEntry): string {
 
 /** Human label for an entry's sections: "1MCA04" or "3MCA01–3MCA06" when contiguous. */
 export function sectionsLabel(entry: TimetableEntry): string {
-  if (entry.sections.length === 0) return "";
-  if (entry.sections.length <= 2) return entry.sections.join(", ");
-  const first = entry.sections[0];
-  const last = entry.sections[entry.sections.length - 1];
-  const prefixMatch = /^(.*?)(\d+)$/.exec(first);
-  const lastMatch = /^(.*?)(\d+)$/.exec(last);
-  if (prefixMatch && lastMatch && prefixMatch[1] === lastMatch[1]) {
-    const startNum = Number(prefixMatch[2]);
-    const endNum = Number(lastMatch[2]);
-    if (endNum > startNum && endNum - startNum === entry.sections.length - 1) {
-      return `${first}–${last}`;
+  if (entry.sections && entry.sections.length > 0) {
+    if (entry.sections.length <= 2) return entry.sections.join(", ");
+    const first = entry.sections[0];
+    const last = entry.sections[entry.sections.length - 1];
+    const prefixMatch = /^(.*?)(\d+)$/.exec(first);
+    const lastMatch = /^(.*?)(\d+)$/.exec(last);
+    if (prefixMatch && lastMatch && prefixMatch[1] === lastMatch[1]) {
+      const startNum = Number(prefixMatch[2]);
+      const endNum = Number(lastMatch[2]);
+      if (endNum > startNum && endNum - startNum === entry.sections.length - 1) {
+        return `${first}–${last}`;
+      }
     }
+    return entry.sections.join(", ");
   }
-  return entry.sections.join(", ");
+  return entry.batch ? `Batch ${entry.batch}` : "";
 }
 
 /** Full snapshot used by Home and the next-action engine. */
-export function getScheduleSnapshot(now: Date = new Date()) {
+export function getScheduleSnapshot(now: Date = new Date(), timetableEntries?: TimetableEntry[]) {
   return {
     now,
     dayName: getCurrentDay(now),
@@ -146,8 +151,8 @@ export function getScheduleSnapshot(now: Date = new Date()) {
     workContext: getWorkContext(now),
     officeHoursActive: isOfficeHours(now),
     break: getBreak(now),
-    current: getCurrentScheduleItem(now),
-    next: getNextScheduleItem(now),
+    current: getCurrentScheduleItem(now, timetableEntries),
+    next: getNextScheduleItem(now, timetableEntries),
   };
 }
 

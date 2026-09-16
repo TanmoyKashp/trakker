@@ -25,7 +25,7 @@ export function buildModeContext(
   mode: Mode,
   now: Date = new Date(),
 ): UnifiedContext {
-  const snapshot = getScheduleSnapshot(now);
+  const snapshot = getScheduleSnapshot(now, os.timetable);
   const isWork = mode === "work";
 
   return {

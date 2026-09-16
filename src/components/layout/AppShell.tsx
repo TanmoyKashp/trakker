@@ -17,6 +17,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { isOwnerUser } from "../../lib/owner";
 import { applyThemeToDom, THEMES, useTheme, type ThemeId } from "../../lib/theme";
 import { DottedRabbit } from "../rabbit/DottedRabbit";
 import { ThemeSelectorModal } from "../theme/ThemeSelectorModal";
@@ -102,6 +103,7 @@ export function AppShell({
   onThemePersist?: (theme: string) => void;
 }) {
   const { user, signOut, isOfflineMode } = useAuth();
+  const isOwner = isOwnerUser(user);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const { theme, setTheme } = useTheme(initialTheme as ThemeId | undefined, (t) => onThemePersist?.(t));
 
@@ -181,11 +183,15 @@ export function AppShell({
           ) : (
             <>
               <NavLinks items={personalNav} />
-              <div className="my-3 border-t border-stone-200" />
-              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
-                PhD Tracking
-              </div>
-              <NavLinks items={phdNav} />
+              {isOwner && (
+                <>
+                  <div className="my-3 border-t border-stone-200" />
+                  <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+                    PhD Tracking
+                  </div>
+                  <NavLinks items={phdNav} />
+                </>
+              )}
             </>
           )}
         </nav>
@@ -338,17 +344,31 @@ export function AppShell({
               <Target size={18} />
               Goals
             </NavLink>
-            <NavLink
-              to="/applications"
-              className={({ isActive }) =>
-                `focus-ring flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] ${
-                  isActive ? "text-[var(--primary)] font-medium" : "text-stone-600"
-                }`
-              }
-            >
-              <GraduationCap size={18} />
-              PhD Apps
-            </NavLink>
+            {isOwner ? (
+              <NavLink
+                to="/applications"
+                className={({ isActive }) =>
+                  `focus-ring flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] ${
+                    isActive ? "text-[var(--primary)] font-medium" : "text-stone-600"
+                  }`
+                }
+              >
+                <GraduationCap size={18} />
+                PhD Apps
+              </NavLink>
+            ) : (
+              <NavLink
+                to="/workout"
+                className={({ isActive }) =>
+                  `focus-ring flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] ${
+                    isActive ? "text-[var(--primary)] font-medium" : "text-stone-600"
+                  }`
+                }
+              >
+                <Dumbbell size={18} />
+                Workout
+              </NavLink>
+            )}
           </>
         )}
       </nav>

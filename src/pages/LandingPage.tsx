@@ -25,7 +25,6 @@ export function LandingPage() {
 
   const { theme, setTheme } = useTheme();
 
-  // Keep DOM theme attribute and status bar meta updated to the chosen theme
   useEffect(() => {
     applyThemeToDom(theme, "work");
   }, [theme]);
@@ -38,7 +37,7 @@ export function LandingPage() {
     try {
       await signIn();
     } catch {
-      // Error is set in AuthContext
+      // Handled in AuthContext
     } finally {
       setSubmitting(false);
     }
@@ -50,9 +49,9 @@ export function LandingPage() {
       data-palette={theme}
       data-theme="work"
     >
-      {/* Top Navigation Bar */}
+      {/* Top Editorial Bar */}
       <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-[#F7F3ED]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 sm:px-8 py-3.5">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 sm:px-10 py-4">
           <div className="flex items-center gap-2.5 select-none">
             <DottedRabbit size="sm" />
             <span className="font-serif text-lg font-bold tracking-[0.2em] text-[#242424]">
@@ -60,25 +59,23 @@ export function LandingPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            {/* Theme Selector Trigger */}
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setIsThemeModalOpen(true)}
-              className="focus-ring inline-flex items-center gap-2 rounded-lg border border-stone-300/80 bg-[#FFFCF7] px-3 py-1.5 text-xs font-medium text-stone-700 shadow-2xs hover:bg-stone-100 transition-colors cursor-pointer"
-              title="Change color theme"
-              aria-label="Change color theme"
+              className="focus-ring inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+              title="Change theme"
+              aria-label="Change theme"
             >
               <Palette size={14} className="text-[var(--primary)]" />
               <span className="hidden sm:inline capitalize">{currentThemeDef.name}</span>
             </button>
 
-            {/* Quick Sign In header button */}
             <button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={submitting || isOffline}
-              className="focus-ring inline-flex items-center justify-center rounded-lg bg-[var(--primary)] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+              className="focus-ring inline-flex items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer"
             >
               {submitting ? "Connecting…" : "Sign In"}
             </button>
@@ -86,36 +83,36 @@ export function LandingPage() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="mx-auto max-w-6xl px-5 sm:px-8">
-        {/* HERO SECTION */}
-        <section className="pt-10 sm:pt-16 lg:pt-20 pb-14 sm:pb-20">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-12 lg:gap-16">
-            {/* Left Column: Copy, Value Statement, Google Sign In */}
+      {/* Main Editorial Body */}
+      <main className="mx-auto max-w-6xl px-6 sm:px-10">
+        {/* HERO SECTION — Cardless, spacious, typographical */}
+        <section className="pt-12 sm:pt-20 lg:pt-28 pb-16 sm:pb-24">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-12 lg:gap-20">
+            {/* Left Column: Editorial Statement */}
             <div className="flex-1 max-w-xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-[#FFFCF7] px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-600 shadow-2xs">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]" />
                 <span>PERSONAL OPERATING SYSTEM</span>
               </div>
 
-              <h1 className="mt-5 font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-[0.15em] text-[#242424] leading-[1.05]">
+              <h1 className="mt-6 font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-[0.14em] text-[#242424] leading-[1.05]">
                 TRAKKER
               </h1>
 
-              <p className="mt-4 text-lg sm:text-xl font-normal leading-relaxed text-stone-600">
-                Calm, focused tracking for your work, routines, goals, and PhD.
+              <p className="mt-5 text-lg sm:text-xl font-normal leading-relaxed text-stone-600">
+                Calm, focused tracking for your work schedules, routines, habits, and personal goals.
               </p>
 
               {/* Offline notice */}
               {isOffline && (
-                <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/90 p-4 text-left text-xs text-amber-900">
+                <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50/80 p-3.5 text-left text-xs text-amber-900">
                   <div className="font-medium">
                     You are currently offline. Connect to the internet to sign in with Google.
                   </div>
                   <button
                     type="button"
                     onClick={continueOffline}
-                    className="mt-2.5 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-amber-300 bg-amber-100/90 px-3 py-2 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-200 cursor-pointer"
+                    className="mt-2 inline-flex items-center justify-center rounded border border-amber-300 bg-amber-100/90 px-3 py-1.5 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-200 cursor-pointer"
                   >
                     Continue in Offline Mode
                   </button>
@@ -124,7 +121,7 @@ export function LandingPage() {
 
               {/* Missing configuration notice */}
               {!isConfigured && (
-                <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/90 p-4 text-left text-xs text-amber-900">
+                <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50/80 p-3.5 text-left text-xs text-amber-900">
                   <div className="font-semibold">Firebase configuration missing</div>
                   <div className="mt-1 text-[11px] text-amber-800">
                     Please add your Firebase keys to{" "}
@@ -133,7 +130,7 @@ export function LandingPage() {
                   <button
                     type="button"
                     onClick={continueOffline}
-                    className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-stone-800 px-4 text-xs font-semibold text-white transition-colors hover:bg-stone-900 cursor-pointer"
+                    className="mt-2.5 inline-flex items-center justify-center rounded bg-stone-800 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-stone-900 cursor-pointer"
                   >
                     Continue in Offline Mode
                   </button>
@@ -142,14 +139,14 @@ export function LandingPage() {
 
               {/* Error notice */}
               {error && (
-                <div className="mt-6 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-left text-xs text-rose-800">
-                  <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
+                <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50/80 p-3 text-left text-xs text-rose-800">
+                  <AlertCircle size={15} className="mt-0.5 shrink-0 text-rose-600" />
                   <div className="flex-1">
                     <div>{error}</div>
                     <button
                       type="button"
                       onClick={clearError}
-                      className="mt-1.5 font-medium underline hover:text-rose-950 cursor-pointer"
+                      className="mt-1 font-medium underline hover:text-rose-950 cursor-pointer"
                     >
                       Dismiss
                     </button>
@@ -163,18 +160,17 @@ export function LandingPage() {
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={submitting || isOffline}
-                  className="google-btn focus-ring inline-flex min-h-13 w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-5 text-sm sm:text-base font-medium text-stone-800 shadow-sm transition-all hover:bg-stone-50 hover:border-stone-400 hover:shadow disabled:opacity-50 cursor-pointer"
+                  className="google-btn focus-ring inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg border border-stone-300 bg-white px-5 text-sm font-medium text-stone-800 transition-colors hover:bg-stone-50 hover:border-stone-400 disabled:opacity-50 cursor-pointer"
                   aria-label="Continue with Google"
                 >
                   {submitting ? (
                     <>
-                      <RefreshCw size={19} className="animate-spin text-stone-500" />
+                      <RefreshCw size={18} className="animate-spin text-stone-500" />
                       <span>Connecting to Google…</span>
                     </>
                   ) : (
                     <>
-                      {/* Google official SVG logo */}
-                      <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                      <svg className="h-4.5 w-4.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                         <path
                           fill="#4285F4"
                           d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -197,15 +193,15 @@ export function LandingPage() {
                   )}
                 </button>
 
-                <div className="mt-3.5 text-center sm:text-left text-xs text-stone-500 font-light tracking-wide">
-                  Local-first · Cross-device sync · Private
+                <div className="mt-3 text-center sm:text-left text-xs text-stone-500 font-light tracking-wide">
+                  Local-first · Encrypted cloud sync · Private
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Signature Visual Large Dotted Rabbit */}
+            {/* Right Column: Signature Pure Dotted Rabbit Hero Visual (No card container) */}
             <div className="flex-1 flex flex-col items-center justify-center lg:items-end">
-              <div className="landing-rabbit-card card-shadow relative flex flex-col items-center justify-center rounded-3xl border border-stone-300/70 bg-[#FFFCF7] p-8 sm:p-12 transition-all">
+              <div className="relative flex flex-col items-center justify-center p-4">
                 <DottedRabbit
                   size="hero"
                   interactive
@@ -213,8 +209,8 @@ export function LandingPage() {
                   title="Interactive Trakker mascot — click for ripple, double click to hop"
                 />
 
-                <div className="mt-5 flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-stone-500 select-none">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)] opacity-70 animate-pulse" />
+                <div className="mt-4 flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-stone-400 select-none">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)] opacity-60 animate-pulse" />
                   <span>tap the rabbit to say hello</span>
                 </div>
               </div>
@@ -222,156 +218,147 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* UNDERSTATED PRINCIPLES / FEATURES ROW */}
-        <section className="border-y border-stone-200/80 py-10 sm:py-14 my-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-tint)] text-[var(--primary)]">
-                <ShieldCheck size={19} />
+        {/* UNDERSTATED PRINCIPLES / FEATURES — Subtle horizontal dividers */}
+        <section className="border-y border-stone-200/80 py-12 my-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10">
+            <div className="space-y-1.5">
+              <div className="text-[var(--primary)] mb-2">
+                <ShieldCheck size={20} />
               </div>
-              <div>
-                <h2 className="text-sm font-semibold tracking-wide text-[#242424]">
-                  Your data stays yours
-                </h2>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500">
-                  Local-first persistence. Your schedules, tasks, and notes remain on your device even without an internet connection.
-                </p>
-              </div>
+              <h2 className="text-sm font-semibold tracking-wide text-[#242424]">
+                Your data stays yours
+              </h2>
+              <p className="text-xs leading-relaxed text-stone-500">
+                Local-first persistence. Your schedules, tasks, and routines remain on your device even without an internet connection.
+              </p>
             </div>
 
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-tint)] text-[var(--primary)]">
-                <Smartphone size={19} />
+            <div className="space-y-1.5">
+              <div className="text-[var(--primary)] mb-2">
+                <Smartphone size={20} />
               </div>
-              <div>
-                <h2 className="text-sm font-semibold tracking-wide text-[#242424]">
-                  Works across devices
-                </h2>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500">
-                  Seamless Cloud Firestore sync updates your phone, tablet, and desktop in real time without conflicting overwrites.
-                </p>
-              </div>
+              <h2 className="text-sm font-semibold tracking-wide text-[#242424]">
+                Works across devices
+              </h2>
+              <p className="text-xs leading-relaxed text-stone-500">
+                Real-time Cloud Firestore synchronization automatically keeps your phone, tablet, and desktop current.
+              </p>
             </div>
 
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-tint)] text-[var(--primary)]">
-                <Zap size={19} />
+            <div className="space-y-1.5">
+              <div className="text-[var(--primary)] mb-2">
+                <Zap size={20} />
               </div>
-              <div>
-                <h2 className="text-sm font-semibold tracking-wide text-[#242424]">
-                  Local-first and fast
-                </h2>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500">
-                  Instant interactions with zero loading spinners on everyday actions. Everything opens and saves with zero latency.
-                </p>
-              </div>
+              <h2 className="text-sm font-semibold tracking-wide text-[#242424]">
+                Local-first & fast
+              </h2>
+              <p className="text-xs leading-relaxed text-stone-500">
+                Instant UI reactions with zero loading spinners on everyday actions. Everything opens and saves instantly.
+              </p>
             </div>
 
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-tint)] text-[var(--primary)]">
-                <Lock size={19} />
+            <div className="space-y-1.5">
+              <div className="text-[var(--primary)] mb-2">
+                <Lock size={20} />
               </div>
-              <div>
-                <h2 className="text-sm font-semibold tracking-wide text-[#242424]">
-                  Private and secure
-                </h2>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500">
-                  Each account is strictly isolated within its own authenticated Firestore vault. No tracking, no profiling, and no ads.
-                </p>
-              </div>
+              <h2 className="text-sm font-semibold tracking-wide text-[#242424]">
+                Private & isolated
+              </h2>
+              <p className="text-xs leading-relaxed text-stone-500">
+                Each account is strictly isolated within its own authenticated Firestore vault. No advertising, tracking, or profiling.
+              </p>
             </div>
           </div>
         </section>
 
-        {/* BRAND STATEMENT & MODE SEPARATION */}
-        <section className="py-14 sm:py-20 text-center">
-          <div className="mx-auto max-w-2xl">
+        {/* BRAND STATEMENT & DUAL MODE ARCHITECTURE — Editorial 2-Column Split */}
+        <section className="py-14 sm:py-20">
+          <div className="max-w-2xl">
             <h2 className="font-serif text-3xl sm:text-4xl font-semibold tracking-wide text-[#242424]">
-              A calmer, more intentional you.
+              A calmer, more intentional rhythm.
             </h2>
             <p className="mt-3 text-sm sm:text-base text-stone-600">
-              Tasks. Goals. Routines. Work. PhD. All in one place.
+              Work schedules. Personal goals. Daily routines. Strictly isolated when you need to focus.
             </p>
           </div>
 
-          {/* Mode Distinction Cards */}
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-            {/* Work Mode Card */}
-            <div className="landing-card card-shadow rounded-2xl border border-stone-300/70 bg-[#FFFCF7] p-6 sm:p-8">
-              <div className="inline-flex items-center gap-1.5 rounded-md bg-[#6B1F2A]/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#6B1F2A]">
-                <Briefcase size={13} />
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-14 border-t border-stone-200/80 pt-10">
+            {/* Work Mode Column */}
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#6B1F2A]">
+                <Briefcase size={14} />
                 <span>Work Mode</span>
               </div>
-              <h3 className="mt-4 font-serif text-xl font-semibold text-[#242424]">
-                Deep Focus & Professional Execution
+              <h3 className="font-serif text-2xl font-semibold text-[#242424]">
+                Deep Focus & Structure
               </h3>
-              <p className="mt-2 text-xs sm:text-sm text-stone-600 leading-relaxed">
-                Keep your job or business completely isolated from personal clutter.
+              <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+                Keep your academic or professional calendar completely compartmentalized from personal clutter.
               </p>
-              <ul className="mt-5 space-y-2.5 text-xs text-stone-600">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-[#6B1F2A] shrink-0" />
-                  <span>Structured Timetable with automated day/night schedules</span>
+              <ul className="mt-4 space-y-2.5 text-xs text-stone-600">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={15} className="text-[#6B1F2A] shrink-0 mt-0.5" />
+                  <span>User-configurable Timetable with live lecture progress and breaks</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-[#6B1F2A] shrink-0" />
-                  <span>Work tasks with priority levels and unified next action</span>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={15} className="text-[#6B1F2A] shrink-0 mt-0.5" />
+                  <span>Work tasks with unified next-action recommendations</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-[#6B1F2A] shrink-0" />
-                  <span>Meeting notes and schedules without noise</span>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={15} className="text-[#6B1F2A] shrink-0 mt-0.5" />
+                  <span>Meeting agendas and time-slotted office hours</span>
                 </li>
               </ul>
             </div>
 
-            {/* Personal Mode Card */}
-            <div className="landing-card card-shadow rounded-2xl border border-stone-300/70 bg-[#FFFCF7] p-6 sm:p-8">
-              <div className="inline-flex items-center gap-1.5 rounded-md bg-[#7A8450]/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#7A8450]">
-                <User size={13} />
+            {/* Personal Mode Column */}
+            <div className="space-y-4 md:border-l md:border-stone-200/80 md:pl-10 lg:pl-14">
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#7A8450]">
+                <User size={14} />
                 <span>Personal Mode</span>
               </div>
-              <h3 className="mt-4 font-serif text-xl font-semibold text-[#242424]">
-                Life, Health & Intellectual Growth
+              <h3 className="font-serif text-2xl font-semibold text-[#242424]">
+                Health, Habits & Growth
               </h3>
-              <p className="mt-2 text-xs sm:text-sm text-stone-600 leading-relaxed">
-                Cultivate healthy habits, creative sparks, and research goals peacefully.
+              <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+                Cultivate healthy daily habits, track workout appointments, and capture creative sparks peacefully.
               </p>
-              <ul className="mt-5 space-y-2.5 text-xs text-stone-600">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-[#7A8450] shrink-0" />
-                  <span>Daily habits, routines, and long-term goal tracking</span>
+              <ul className="mt-4 space-y-2.5 text-xs text-stone-600">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={15} className="text-[#7A8450] shrink-0 mt-0.5" />
+                  <span>Daily morning and evening routines with completion history</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-[#7A8450] shrink-0" />
-                  <span>Configurable workout routines with built-in active timer</span>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={15} className="text-[#7A8450] shrink-0 mt-0.5" />
+                  <span>Configurable workout appointments with built-in active timer</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-[#7A8450] shrink-0" />
-                  <span>PhD application trees, status matrices, and quick ideas</span>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 size={15} className="text-[#7A8450] shrink-0 mt-0.5" />
+                  <span>Long-term life goals and quick idea scratchpad</span>
                 </li>
               </ul>
             </div>
           </div>
         </section>
 
-        {/* BOTTOM CALL TO ACTION */}
-        <section className="mb-16 rounded-3xl border border-stone-300/70 bg-[#FFFCF7] p-8 sm:p-12 text-center landing-card card-shadow">
+        {/* BOTTOM INVITATION BANNER — Editorial typography, no box card */}
+        <section className="my-12 border-t border-stone-200/80 py-16 text-center">
           <div className="mx-auto max-w-md">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary-tint)] text-[var(--primary)] mb-3">
+            <div className="mx-auto flex h-9 w-9 items-center justify-center text-[var(--primary)] mb-2">
               <Sparkles size={20} />
             </div>
             <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-[#242424]">
               Start your calmer day.
             </h2>
             <p className="mt-2 text-xs sm:text-sm text-stone-600">
-              No subscription traps. Your data is synced securely with your Google account.
+              No subscription fees or ads. Your data is stored securely under your Google account.
             </p>
 
             <button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={submitting || isOffline}
-              className="google-btn focus-ring mt-6 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white px-5 text-sm font-medium text-stone-800 shadow-sm transition-all hover:bg-stone-50 hover:border-stone-400 hover:shadow disabled:opacity-50 cursor-pointer"
+              className="google-btn focus-ring mt-6 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg border border-stone-300 bg-white px-5 text-sm font-medium text-stone-800 transition-colors hover:bg-stone-50 hover:border-stone-400 disabled:opacity-50 cursor-pointer"
             >
               {submitting ? (
                 <>
@@ -408,7 +395,7 @@ export function LandingPage() {
 
       {/* MINIMAL FOOTER */}
       <footer className="border-t border-stone-200/80 py-8 text-center text-xs text-stone-500">
-        <div className="mx-auto flex max-w-6xl flex-col sm:flex-row items-center justify-between gap-4 px-5 sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col sm:flex-row items-center justify-between gap-4 px-6 sm:px-10">
           <div className="flex items-center gap-2 font-serif font-medium tracking-wider text-stone-600">
             <DottedRabbit size="sm" />
             <span>TRAKKER</span>

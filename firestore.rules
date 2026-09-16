@@ -2,14 +2,49 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User data isolation: authenticated users can only access their own user document and any subcollections
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Owner check: verified by cryptographically signed Firebase Auth token email or UID
+    function isOwner() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'tanmoykashyap331@gmail.com' ||
+        request.auth.uid == 'Q1HVzkoE5ZUcACfuaQoLPBSPsdJ2'
+      );
+    }
+
+    // User profile document: users/{userId}
+    match /users/{userId} {
+      allow read, write: if isUser(userId);
+
+      // PhD tracking dataset: STRICTLY OWNER ONLY.
+      // Every other authenticated user is rejected from reading or writing this document,
+      // even under their own UID.
+      match /data/phd {
+        allow read, write: if isUser(userId) && isOwner();
+      }
+
+      // Any subdocuments under data/phd (if any)
+      match /data/phd/{document=**} {
+        allow read, write: if isUser(userId) && isOwner();
+      }
+
+      // Standard user data documents (os, quickIdeas, _diagnostic_probe, etc.)
+      // Excludes 'phd' document to ensure non-owners cannot circumvent the owner restriction
+      match /data/{document} {
+        allow read, write: if isUser(userId) && document != 'phd';
+      }
+
+      // Any other subcollections under users/{userId} (excluding data)
+      match /{subcollection}/{document=**} {
+        allow read, write: if isUser(userId) && subcollection != 'data';
+      }
     }
   }
 }
-

@@ -20,8 +20,11 @@ import { TodayPage } from "./pages/TodayPage";
 import { TreePage } from "./pages/TreePage";
 import { WorkoutPage } from "./pages/WorkoutPage";
 
+import { isOwnerUser } from "./lib/owner";
+
 function AppContent() {
   const { user, loading, showOnboarding, isOfflineMode } = useAuth();
+  const isOwner = isOwnerUser(user);
   const data = useTrakkerData(user?.uid);
   const os = useTrakkerOs(user?.uid);
 
@@ -74,7 +77,7 @@ function AppContent() {
         <Route
           index
           element={
-            <HomePage applications={data.applications} tree={data.tree} os={os.os} mode={os.os.mode} />
+            <HomePage applications={isOwner ? data.applications : []} tree={isOwner ? data.tree : []} os={os.os} mode={os.os.mode} />
           }
         />
         <Route
@@ -83,16 +86,20 @@ function AppContent() {
             <TodayPage osState={os.os} os={os} />
           }
         />
-        <Route path="/timetable" element={<TimetablePage />} />
+        <Route path="/timetable" element={<TimetablePage osState={os.os} os={os} />} />
         <Route path="/tasks" element={<TasksPage osState={os.os} os={os} mode={os.os.mode} />} />
         <Route path="/meetings" element={<MeetingsPage osState={os.os} os={os} />} />
         <Route path="/daily" element={<DailyPage osState={os.os} os={os} />} />
         <Route path="/goals" element={<GoalsPage osState={os.os} os={os} />} />
         <Route path="/workout" element={<WorkoutPage osState={os.os} os={os} />} />
-        <Route path="/applications" element={<ApplicationsPage {...data} />} />
-        <Route path="/applications/:id" element={<ApplicationDetailPage {...data} />} />
-        <Route path="/tree" element={<TreePage {...data} />} />
-        <Route path="/status" element={<StatusPage {...data} />} />
+        {isOwner ? (
+          <>
+            <Route path="/applications" element={<ApplicationsPage {...data} />} />
+            <Route path="/applications/:id" element={<ApplicationDetailPage {...data} />} />
+            <Route path="/tree" element={<TreePage {...data} />} />
+            <Route path="/status" element={<StatusPage {...data} />} />
+          </>
+        ) : null}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

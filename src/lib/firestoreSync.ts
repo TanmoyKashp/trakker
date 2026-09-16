@@ -8,15 +8,21 @@ import {
 } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
 import { auth, db, isFirebaseConfigured, waitForAuthStateReady } from "./firebase";
+import { isOwnerUser } from "./owner";
 import type {
   Application,
   ApplicationOverride,
+  ApplicationTask,
+  CoreAsset,
   Goal,
   Meeting,
   QuickIdea,
+  ReferenceData,
   Routine,
   Task,
+  TimetableEntry,
   TrakkerOsState,
+  TreeNodeRecord,
   TreeOverride,
   WorkoutItem,
   WorkoutSettings,
@@ -35,6 +41,7 @@ export interface FirestoreOsData {
   workout: WorkoutSettings;
   workouts: WorkoutItem[];
   goals: Goal[];
+  timetable?: TimetableEntry[];
   theme?: string;
   updatedAt: string;
 }
@@ -45,9 +52,14 @@ export interface FirestoreIdeasData {
 }
 
 export interface FirestorePhdData {
+  applications?: Application[];
+  tree?: TreeNodeRecord[];
+  applicationTemplate?: ApplicationTask[];
+  coreAssets?: CoreAsset[];
   applicationOverrides: Record<string, ApplicationOverride>;
   customApplications: Application[];
   treeOverrides: Record<string, TreeOverride>;
+  expandedTreeNodes?: Record<string, boolean>;
   updatedAt: string;
 }
 
@@ -376,6 +388,7 @@ export async function performFullSync(uid: string): Promise<boolean> {
   }
 
   // Real Application Data Sync
+  const isOwner = isOwnerUser(auth?.currentUser);
   const osDocRef = doc(firestore, "users", uid, "data", "os");
   const ideasDocRef = doc(firestore, "users", uid, "data", "quickIdeas");
   const phdDocRef = doc(firestore, "users", uid, "data", "phd");
@@ -394,18 +407,13 @@ export async function performFullSync(uid: string): Promise<boolean> {
       `[SYNC] records found: ${ideasSnap.exists() ? (ideasSnap.data() as FirestoreIdeasData)?.ideas?.length ?? 1 : 0}`,
     );
 
-    console.log(`[SYNC] reading collection: users/${uid}/data/phd`);
-    const phdSnap = await getDoc(phdDocRef);
-    console.log("[SYNC] read success");
-    console.log(`[SYNC] records found: ${phdSnap.exists() ? 1 : 0}`);
-
     const nowIso = new Date().toISOString();
 
-    // 1. OS Data (tasks, meetings, routines, workouts, goals, mode)
+    // 1. OS Data (tasks, meetings, routines, workouts, goals, timetable, mode)
     const localOs = readLocalJson<TrakkerOsState>(STORAGE_KEY_OS);
     const remoteOs = osSnap.exists() ? (osSnap.data() as FirestoreOsData) : null;
     console.log(
-      `[SYNC] local records: osTasks=${localOs?.tasks?.length || 0}, localGoals=${localOs?.goals?.length || 0}, localWorkouts=${localOs?.workouts?.length || 0}`,
+      `[SYNC] local records: osTasks=${localOs?.tasks?.length || 0}, localGoals=${localOs?.goals?.length || 0}, localWorkouts=${localOs?.workouts?.length || 0}, localTimetable=${localOs?.timetable?.length || 0}`,
     );
 
     if (remoteOs || localOs) {
@@ -415,6 +423,7 @@ export async function performFullSync(uid: string): Promise<boolean> {
       const mergedRoutines = mergeItemsById(localOs?.routines || [], remoteOs?.routines || []);
       const mergedWorkouts = mergeItemsById(localOs?.workouts || [], remoteOs?.workouts || []);
       const mergedGoals = mergeItemsById(localOs?.goals || [], remoteOs?.goals || []);
+      const mergedTimetable = mergeItemsById(localOs?.timetable || [], remoteOs?.timetable || []);
       const mergedRoutineCompletions = mergeSimpleRecords(
         localOs?.routineCompletions,
         remoteOs?.routineCompletions,
@@ -430,6 +439,7 @@ export async function performFullSync(uid: string): Promise<boolean> {
         workout: remoteOs?.workout || localOs?.workout || { enabled: true, startTime: "17:00" },
         workouts: mergedWorkouts.length ? mergedWorkouts : (localOs?.workouts || []),
         goals: mergedGoals,
+        timetable: mergedTimetable,
         theme: remoteOs?.theme || localOs?.theme,
         updatedAt: nowIso,
       };
@@ -450,6 +460,7 @@ export async function performFullSync(uid: string): Promise<boolean> {
         workout: mergedOs.workout,
         workouts: mergedOs.workouts,
         goals: mergedOs.goals,
+        timetable: mergedOs.timetable,
         theme: mergedOs.theme,
         updatedAt: nowIso,
       });
@@ -486,61 +497,81 @@ export async function performFullSync(uid: string): Promise<boolean> {
       lastRemoteIdeasUpdatedAt = nowIso;
     }
 
-    // 3. PhD Data
-    interface LocalStateRaw {
-      applicationOverrides?: Record<string, ApplicationOverride>;
-      customApplications?: Application[];
-      treeOverrides?: Record<string, TreeOverride>;
-      expandedTreeNodes?: Record<string, boolean>;
-      lastReferenceData?: unknown;
-      updatedAt?: string;
-    }
-    const localPhd = readLocalJson<LocalStateRaw>(STORAGE_KEY_PHD);
-    const remotePhd = phdSnap.exists() ? (phdSnap.data() as FirestorePhdData) : null;
-    console.log(`[SYNC] local records: phdCustomApps=${localPhd?.customApplications?.length || 0}`);
+    // 3. PhD Data (STRICTLY OWNER ONLY)
+    if (isOwner) {
+      console.log(`[SYNC] reading collection: users/${uid}/data/phd`);
+      const phdSnap = await getDoc(phdDocRef);
+      console.log("[SYNC] read success");
+      console.log(`[SYNC] records found: ${phdSnap.exists() ? 1 : 0}`);
 
-    if (localPhd || remotePhd) {
-      console.log("[SYNC] merging: reconciling PhD progress and overrides");
-      const mergedAppOverrides = mergeApplicationOverrides(
-        localPhd?.applicationOverrides,
-        remotePhd?.applicationOverrides,
-      );
-      const mergedCustomApps = mergeItemsById(
-        localPhd?.customApplications || [],
-        remotePhd?.customApplications || [],
-      );
-      const mergedTreeOverrides = mergeSimpleRecords(
-        localPhd?.treeOverrides,
-        remotePhd?.treeOverrides,
-      );
+      interface LocalStateRaw {
+        applicationOverrides?: Record<string, ApplicationOverride>;
+        customApplications?: Application[];
+        treeOverrides?: Record<string, TreeOverride>;
+        expandedTreeNodes?: Record<string, boolean>;
+        lastReferenceData?: unknown;
+        updatedAt?: string;
+      }
+      const localPhd = readLocalJson<LocalStateRaw>(STORAGE_KEY_PHD);
+      const remotePhd = phdSnap.exists() ? (phdSnap.data() as FirestorePhdData) : null;
+      console.log(`[SYNC] local records: phdCustomApps=${localPhd?.customApplications?.length || 0}`);
 
-      const mergedPhdState = {
-        ...(localPhd || {}),
-        applicationOverrides: mergedAppOverrides,
-        customApplications: mergedCustomApps,
-        treeOverrides: mergedTreeOverrides,
-        expandedTreeNodes: localPhd?.expandedTreeNodes || { "1": true },
-        updatedAt: nowIso,
-      };
+      if (localPhd || remotePhd) {
+        console.log("[SYNC] merging: reconciling PhD progress and overrides");
+        const mergedAppOverrides = mergeApplicationOverrides(
+          localPhd?.applicationOverrides,
+          remotePhd?.applicationOverrides,
+        );
+        const mergedCustomApps = mergeItemsById(
+          localPhd?.customApplications || [],
+          remotePhd?.customApplications || [],
+        );
+        const mergedTreeOverrides = mergeSimpleRecords(
+          localPhd?.treeOverrides,
+          remotePhd?.treeOverrides,
+        );
 
-      isApplyingRemoteChange = true;
-      writeLocalJson(STORAGE_KEY_PHD, mergedPhdState);
-      window.dispatchEvent(new CustomEvent("trakker:sync:phd", { detail: mergedPhdState }));
-      setTimeout(() => {
-        isApplyingRemoteChange = false;
-      }, 600);
+        // Cache full reference dataset from remote if present
+        if (remotePhd?.applications && remotePhd.applications.length > 0) {
+          const refData: ReferenceData = {
+            applications: remotePhd.applications,
+            tree: remotePhd.tree || [],
+            applicationTemplate: remotePhd.applicationTemplate || [],
+            coreAssets: remotePhd.coreAssets || [],
+          };
+          writeLocalJson("trakker:phd:reference", refData);
+          window.dispatchEvent(new CustomEvent("trakker:sync:reference", { detail: refData }));
+        }
 
-      const phdPayload = sanitizeForFirestore<FirestorePhdData>({
-        applicationOverrides: mergedAppOverrides,
-        customApplications: mergedCustomApps,
-        treeOverrides: mergedTreeOverrides,
-        updatedAt: nowIso,
-      });
+        const mergedPhdState = {
+          ...(localPhd || {}),
+          applicationOverrides: mergedAppOverrides,
+          customApplications: mergedCustomApps,
+          treeOverrides: mergedTreeOverrides,
+          expandedTreeNodes: remotePhd?.expandedTreeNodes || localPhd?.expandedTreeNodes || { "1": true },
+          updatedAt: nowIso,
+        };
 
-      console.log(`[SYNC] writing: users/${uid}/data/phd`);
-      await setDoc(phdDocRef, phdPayload, { merge: true });
-      console.log("[SYNC] write success");
-      lastRemotePhdUpdatedAt = nowIso;
+        isApplyingRemoteChange = true;
+        writeLocalJson(STORAGE_KEY_PHD, mergedPhdState);
+        window.dispatchEvent(new CustomEvent("trakker:sync:phd", { detail: mergedPhdState }));
+        setTimeout(() => {
+          isApplyingRemoteChange = false;
+        }, 600);
+
+        const phdPayload = sanitizeForFirestore<FirestorePhdData>({
+          applicationOverrides: mergedAppOverrides,
+          customApplications: mergedCustomApps,
+          treeOverrides: mergedTreeOverrides,
+          expandedTreeNodes: mergedPhdState.expandedTreeNodes,
+          updatedAt: nowIso,
+        });
+
+        console.log(`[SYNC] writing: users/${uid}/data/phd`);
+        await setDoc(phdDocRef, phdPayload, { merge: true });
+        console.log("[SYNC] write success");
+        lastRemotePhdUpdatedAt = nowIso;
+      }
     }
 
     console.log("[SYNC] sync complete");
@@ -564,6 +595,7 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
   stopFirestoreSync();
   currentSyncUid = uid;
 
+  const isOwner = isOwnerUser(auth?.currentUser);
   const firestore = db;
   const osDocRef = doc(firestore, "users", uid, "data", "os");
   const ideasDocRef = doc(firestore, "users", uid, "data", "quickIdeas");
@@ -588,6 +620,7 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
       const mergedRoutines = mergeItemsById(local?.routines || [], remote.routines || []);
       const mergedWorkouts = mergeItemsById(local?.workouts || [], remote.workouts || []);
       const mergedGoals = mergeItemsById(local?.goals || [], remote.goals || []);
+      const mergedTimetable = mergeItemsById(local?.timetable || [], remote.timetable || []);
       const mergedCompletions = mergeSimpleRecords(local?.routineCompletions, remote.routineCompletions);
 
       const nextState: TrakkerOsState = {
@@ -600,6 +633,7 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
         workout: remote.workout || local?.workout || { enabled: true, startTime: "17:00" },
         workouts: mergedWorkouts.length ? mergedWorkouts : (local?.workouts || []),
         goals: mergedGoals,
+        timetable: mergedTimetable,
         theme: remote.theme || local?.theme,
         updatedAt: remote.updatedAt,
       };
@@ -643,58 +677,73 @@ export async function startFirestoreSync(uid: string): Promise<() => void> {
     },
   );
 
-  const unsubPhd = onSnapshot(
-    phdDocRef,
-    (snap) => {
-      if (!snap.exists() || isApplyingRemoteChange) return;
-      const remote = snap.data() as FirestorePhdData;
-      if (remote.updatedAt && remote.updatedAt === lastRemotePhdUpdatedAt) return;
+  let unsubPhd: Unsubscribe | null = null;
+  if (isOwner) {
+    unsubPhd = onSnapshot(
+      phdDocRef,
+      (snap) => {
+        if (!snap.exists() || isApplyingRemoteChange) return;
+        const remote = snap.data() as FirestorePhdData;
+        if (remote.updatedAt && remote.updatedAt === lastRemotePhdUpdatedAt) return;
 
-      lastRemotePhdUpdatedAt = remote.updatedAt;
-      interface LocalStateRaw {
-        applicationOverrides?: Record<string, ApplicationOverride>;
-        customApplications?: Application[];
-        treeOverrides?: Record<string, TreeOverride>;
-        expandedTreeNodes?: Record<string, boolean>;
-        lastReferenceData?: unknown;
-        updatedAt?: string;
-      }
-      const local = readLocalJson<LocalStateRaw>(STORAGE_KEY_PHD);
+        lastRemotePhdUpdatedAt = remote.updatedAt;
 
-      const mergedAppOverrides = mergeApplicationOverrides(
-        local?.applicationOverrides,
-        remote.applicationOverrides,
-      );
-      const mergedCustomApps = mergeItemsById(
-        local?.customApplications || [],
-        remote.customApplications || [],
-      );
-      const mergedTreeOverrides = mergeSimpleRecords(local?.treeOverrides, remote.treeOverrides);
+        if (remote.applications && remote.applications.length > 0) {
+          const refData: ReferenceData = {
+            applications: remote.applications,
+            tree: remote.tree || [],
+            applicationTemplate: remote.applicationTemplate || [],
+            coreAssets: remote.coreAssets || [],
+          };
+          writeLocalJson("trakker:phd:reference", refData);
+          window.dispatchEvent(new CustomEvent("trakker:sync:reference", { detail: refData }));
+        }
 
-      const nextState = {
-        ...(local || {}),
-        applicationOverrides: mergedAppOverrides,
-        customApplications: mergedCustomApps,
-        treeOverrides: mergedTreeOverrides,
-        expandedTreeNodes: local?.expandedTreeNodes || { "1": true },
-        updatedAt: remote.updatedAt,
-      };
+        interface LocalStateRaw {
+          applicationOverrides?: Record<string, ApplicationOverride>;
+          customApplications?: Application[];
+          treeOverrides?: Record<string, TreeOverride>;
+          expandedTreeNodes?: Record<string, boolean>;
+          lastReferenceData?: unknown;
+          updatedAt?: string;
+        }
+        const local = readLocalJson<LocalStateRaw>(STORAGE_KEY_PHD);
 
-      isApplyingRemoteChange = true;
-      writeLocalJson(STORAGE_KEY_PHD, nextState);
-      window.dispatchEvent(new CustomEvent("trakker:sync:phd", { detail: nextState }));
-      setSyncStatus("synced");
-      setTimeout(() => {
-        isApplyingRemoteChange = false;
-      }, 600);
-    },
-    (err) => {
-      const errorInfo = logSyncError(err, "onSnapshot listener (phd)", `users/${uid}/data/phd`, uid);
-      setSyncStatus("error", errorInfo.humanMessage);
-    },
-  );
+        const mergedAppOverrides = mergeApplicationOverrides(
+          local?.applicationOverrides,
+          remote.applicationOverrides,
+        );
+        const mergedCustomApps = mergeItemsById(
+          local?.customApplications || [],
+          remote.customApplications || [],
+        );
+        const mergedTreeOverrides = mergeSimpleRecords(local?.treeOverrides, remote.treeOverrides);
 
-  activeUnsubscribes = [unsubOs, unsubIdeas, unsubPhd];
+        const nextState = {
+          ...(local || {}),
+          applicationOverrides: mergedAppOverrides,
+          customApplications: mergedCustomApps,
+          treeOverrides: mergedTreeOverrides,
+          expandedTreeNodes: remote.expandedTreeNodes || local?.expandedTreeNodes || { "1": true },
+          updatedAt: remote.updatedAt,
+        };
+
+        isApplyingRemoteChange = true;
+        writeLocalJson(STORAGE_KEY_PHD, nextState);
+        window.dispatchEvent(new CustomEvent("trakker:sync:phd", { detail: nextState }));
+        setSyncStatus("synced");
+        setTimeout(() => {
+          isApplyingRemoteChange = false;
+        }, 600);
+      },
+      (err) => {
+        const errorInfo = logSyncError(err, "onSnapshot listener (phd)", `users/${uid}/data/phd`, uid);
+        setSyncStatus("error", errorInfo.humanMessage);
+      },
+    );
+  }
+
+  activeUnsubscribes = unsubPhd ? [unsubOs, unsubIdeas, unsubPhd] : [unsubOs, unsubIdeas];
 
   return () => {
     stopFirestoreSync();
@@ -738,6 +787,7 @@ export function syncOsToFirestore(uid: string, state: TrakkerOsState) {
       workout: state.workout,
       workouts: state.workouts,
       goals: state.goals,
+      timetable: state.timetable,
       theme: state.theme,
       updatedAt: state.updatedAt || nowIso,
     });
@@ -795,7 +845,7 @@ export function syncPhdToFirestore(
   },
 ) {
   const firestore = db;
-  if (!firestore || isApplyingRemoteChange) return;
+  if (!firestore || isApplyingRemoteChange || !isOwnerUser(auth?.currentUser)) return;
 
   if (pushPhdTimer) clearTimeout(pushPhdTimer);
   pushPhdTimer = setTimeout(async () => {

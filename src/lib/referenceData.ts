@@ -1,30 +1,40 @@
-import applications from "../../data/applications.json";
-import applicationTemplate from "../../data/application-template.json";
-import tree from "../../data/application-tree.json";
-import coreAssets from "../../data/core-assets.json";
 import type { ReferenceData } from "../types";
 
-export const bundledReferenceData: ReferenceData = {
-  applications: applications as ReferenceData["applications"],
-  applicationTemplate: applicationTemplate as ReferenceData["applicationTemplate"],
-  tree: tree as ReferenceData["tree"],
-  coreAssets: coreAssets as ReferenceData["coreAssets"],
+export const emptyReferenceData: ReferenceData = {
+  applications: [],
+  applicationTemplate: [],
+  tree: [],
+  coreAssets: [],
 };
 
-export async function loadReferenceData(): Promise<{ data: ReferenceData; offline: boolean; error?: string }> {
+export const bundledReferenceData: ReferenceData = emptyReferenceData;
+
+export function getCachedReferenceData(): ReferenceData {
+  if (typeof window === "undefined") return emptyReferenceData;
   try {
-    const [apps, template, treeData, assets] = await Promise.all([
-      fetch("/data/applications.json").then((res) => res.json()),
-      fetch("/data/application-template.json").then((res) => res.json()),
-      fetch("/data/application-tree.json").then((res) => res.json()),
-      fetch("/data/core-assets.json").then((res) => res.json()),
-    ]);
-    return { data: { applications: apps, applicationTemplate: template, tree: treeData, coreAssets: assets }, offline: false };
-  } catch (error) {
-    return {
-      data: bundledReferenceData,
-      offline: true,
-      error: error instanceof Error ? error.message : "Could not refresh application data.",
-    };
+    const cached = localStorage.getItem("trakker:phd:reference");
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed.applications)) return parsed;
+    }
+    const local = localStorage.getItem("trakker:v1");
+    if (local) {
+      const parsed = JSON.parse(local);
+      if (parsed.lastReferenceData?.applications?.length) {
+        return parsed.lastReferenceData;
+      }
+    }
+  } catch {
+    // Ignore parse error
   }
+  return emptyReferenceData;
+}
+
+export async function loadReferenceData(): Promise<{ data: ReferenceData; offline: boolean; error?: string }> {
+  const cached = getCachedReferenceData();
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  return {
+    data: cached,
+    offline: isOffline,
+  };
 }

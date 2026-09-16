@@ -31,10 +31,10 @@ function startsInLabel(startTime: string, nowT: string): string | null {
 
 export function TodayPage({ osState, os }: Props) {
   const now = useNow(); // shared 30s clock so "time left" updates naturally
-  const snapshot = getScheduleSnapshot(now);
+  const snapshot = getScheduleSnapshot(now, osState.timetable);
   const today = todayISO(now);
   const workDay = snapshot.workDayIndex;
-  const entries = workDay !== null ? getDayEntries(workDay) : [];
+  const entries = workDay !== null ? getDayEntries(workDay, osState.timetable) : [];
   const nowT = snapshot.time;
   const { deleteTask, toast } = useUndoableTaskDelete(os);
 
